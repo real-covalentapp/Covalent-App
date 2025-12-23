@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { QuestionnaireData } from '../types';
 import { db } from '../db';
@@ -13,11 +12,13 @@ const AdminDashboard: React.FC = () => {
   const loadSubmissions = async () => {
     setIsLoading(true);
     try {
+      // Force network fetch to ensure global consistency
       const data = await db.getAllSubmissions();
       setSubmissions(data);
       setLastSynced(new Date());
       setIsOnline(true);
     } catch (err) {
+      console.error(err);
       setIsOnline(false);
     } finally {
       setIsLoading(false);
@@ -29,8 +30,8 @@ const AdminDashboard: React.FC = () => {
     const headers = [
       "ID", "Name", "Email", "Age", "Gender", "Interests", 
       "Culture", "Religion", "Politics", "Major", "GradYear",
-      "Career", "LocCommit", "LocDetail", "Traits", "Instagram", "LinkedIn", "Resume", "Hobbies",
-      "LookingFor", "IdealPartner", "BuildGoal", "Dealbreakers", "Trajectory"
+      "Career", "LocCommit", "LocDetail", "Traits", "Instagram", "LinkedIn", "Accomplishments", "Hobbies",
+      "LookingFor", "IdealPartner", "BuildGoal", "Dealbreakers", "ExceptionalReasoning"
     ];
     const rows = submissions.map(s => [
       s.id, s.fullName, s.email, s.age, s.gender, s.interestedIn.join('|'),
@@ -69,11 +70,11 @@ const AdminDashboard: React.FC = () => {
             <h1 className="text-4xl font-serif font-bold text-rose-950 dark:text-rose-100">Cohort Registry</h1>
             <div className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border ${isOnline ? 'bg-emerald-50 text-emerald-600 border-emerald-100 dark:bg-emerald-900/20 dark:text-emerald-400 dark:border-emerald-800' : 'bg-rose-50 text-rose-600 border-rose-100 dark:bg-rose-900/20 dark:text-rose-400 dark:border-rose-800'}`}>
               <span className={`w-1.5 h-1.5 rounded-full ${isOnline ? 'bg-emerald-500 animate-pulse' : 'bg-rose-500'}`} />
-              {isOnline ? 'Global Online' : 'Local Only'}
+              {isOnline ? 'Registry Live' : 'Connection Lost'}
             </div>
           </div>
           <p className="text-slate-400 dark:text-rose-400/60 text-sm font-medium">
-            Reviewing {submissions.length} candidates • Last synced {lastSynced?.toLocaleTimeString() || 'Never'}
+            Reviewing {submissions.length} hand-vetted candidates • Last synced {lastSynced?.toLocaleTimeString() || 'Never'}
           </p>
         </div>
         <div className="flex flex-wrap gap-3">
@@ -92,7 +93,7 @@ const AdminDashboard: React.FC = () => {
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 items-start">
         <div className="lg:col-span-4 space-y-4 max-h-[80vh] overflow-y-auto pr-4 custom-scrollbar">
           {submissions.length === 0 && !isLoading && (
-            <div className="p-16 text-center border-2 border-dashed border-rose-100 dark:border-rose-900 rounded-[3rem] text-rose-300 italic">No applicants found.</div>
+            <div className="p-16 text-center border-2 border-dashed border-rose-100 dark:border-rose-900 rounded-[3rem] text-rose-300 italic">No applicants found in the cloud registry.</div>
           )}
           {submissions.map(sub => (
             <button key={sub.id} onClick={() => setSelectedId(sub.id)} className={`w-full text-left p-6 rounded-[2.5rem] border transition-all relative overflow-hidden group ${selectedId === sub.id ? 'bg-rose-950 dark:bg-rose-100 border-rose-950 dark:border-rose-100 text-white dark:text-rose-950 shadow-2xl scale-[1.02]' : 'bg-white/70 dark:bg-rose-950/20 border-rose-50 dark:border-rose-900/30 text-slate-900 dark:text-rose-100 hover:border-rose-200'}`}>
@@ -141,24 +142,24 @@ const AdminDashboard: React.FC = () => {
                     </div>
                   </div>
                   <div>
-                    <h3 className="text-[10px] font-black uppercase tracking-widest text-slate-300 mb-4">Trajectory</h3>
+                    <h3 className="text-[10px] font-black uppercase tracking-widest text-slate-300 mb-4">Education</h3>
                     <div className="space-y-3">
-                      <p className="text-sm font-bold dark:text-rose-100">Moving to {selected.locationDetail || 'TBD'}</p>
-                      <p className="text-xs text-slate-500 italic">Committed? {selected.locationCommitted}</p>
+                       <p className="text-sm font-bold dark:text-rose-100">{selected.major} ({selected.gradYear})</p>
+                      <p className="text-xs text-slate-500 italic">Moving to: {selected.locationDetail || 'TBD'}</p>
                     </div>
                   </div>
                 </section>
 
                 <section className="space-y-8">
                   <div>
-                    <h3 className="text-[10px] font-black uppercase tracking-widest text-slate-300 mb-4">Ambition Signals</h3>
+                    <h3 className="text-[10px] font-black uppercase tracking-widest text-slate-300 mb-4">Signals</h3>
                     <div className="flex flex-wrap gap-2 mb-4">
                       {selected.exceptionalTraits.map(t => <span key={t} className="px-3 py-1.5 bg-rose-950 dark:bg-rose-100 text-white dark:text-rose-950 rounded-xl text-[9px] font-bold uppercase tracking-widest">{t}</span>)}
                     </div>
                     <div className="space-y-2 text-xs">
                       <p className="font-bold text-rose-500">IG: {selected.instagramHandle || 'N/A'}</p>
                       <p className="font-bold text-blue-500">LI: {selected.linkedinHandle || 'N/A'}</p>
-                      <p className="font-bold text-emerald-500">Hobbies: {selected.hobbies || 'N/A'}</p>
+                      <p className="font-bold text-emerald-600">Hobbies: {selected.hobbies || 'N/A'}</p>
                     </div>
                   </div>
                 </section>
@@ -166,11 +167,11 @@ const AdminDashboard: React.FC = () => {
 
               <div className="space-y-10 bg-rose-50/20 dark:bg-rose-950/30 p-12 rounded-[3.5rem] border border-rose-100 dark:border-rose-900/20 shadow-inner">
                 {[
-                  { label: "The Build Goal", val: selected.excitedToBuild },
+                  { label: "Major Accomplishments", val: selected.resumeAccomplishments },
+                  { label: "Why they are exceptional", val: selected.ambitionContext },
+                  { label: "Hobbies & Pursuits", val: selected.hobbies },
                   { label: "Ideal Partner", val: selected.idealPartner },
-                  { label: "Accomplishments", val: selected.resumeAccomplishments },
-                  { label: "Exceptional individual details", val: selected.ambitionContext },
-                  { label: "Dealbreakers", val: selected.dealbreakers }
+                  { label: "Absolute Dealbreakers", val: selected.dealbreakers }
                 ].map(item => item.val && (
                   <div key={item.label}>
                     <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-rose-400 mb-3">{item.label}</h4>
@@ -183,8 +184,8 @@ const AdminDashboard: React.FC = () => {
             <div className="h-full min-h-[500px] flex items-center justify-center border-2 border-dashed border-rose-100 dark:border-rose-900 rounded-[4rem] text-center p-12 text-rose-200">
               <div className="max-w-xs space-y-4">
                 <div className="text-6xl opacity-20">🕊️</div>
-                <h3 className="text-2xl font-serif italic">Select an Applicant</h3>
-                <p className="text-sm opacity-50">Review the global cohort registry to find the perfect covalent bond.</p>
+                <h3 className="text-2xl font-serif italic">Cohort Selection</h3>
+                <p className="text-sm opacity-50">Select an applicant to review their trajectory and accomplishments.</p>
               </div>
             </div>
           )}

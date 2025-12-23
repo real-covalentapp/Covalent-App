@@ -1,4 +1,3 @@
-
 export type Gender = 'Man' | 'Woman' | 'Non-binary' | 'Other';
 export type Importance = 'Not important' | 'Somewhat important' | 'Very important';
 
@@ -31,9 +30,9 @@ export interface QuestionnaireData {
   // IV. AMBITION SIGNAL
   exceptionalTraits: string[];
   otherTrait: string;
-  ambitionContext: string;
-  resumeAccomplishments: string; // Renamed from resumeFileName
-  hobbies: string; // Added field
+  ambitionContext: string; // "Exceptional individual" field
+  resumeAccomplishments: string; // "Major Accomplishments List" field
+  hobbies: string; // New hobbies field
   instagramHandle: string;
   linkedinHandle: string;
 

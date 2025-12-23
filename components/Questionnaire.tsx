@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { QuestionnaireData, INITIAL_DATA, Importance, Gender } from '../types';
 import { db } from '../db';
@@ -99,11 +98,11 @@ const Questionnaire: React.FC<Props> = ({ onComplete }) => {
       </header>
 
       <div ref={formRef} className="space-y-24">
-        {/* I. IDENTITY */}
+        {/* I. BASICS */}
         <section className="space-y-10">
           <div className="flex items-center gap-4">
             <span className="text-xs font-bold text-rose-300 dark:text-rose-700 uppercase tracking-widest">01</span>
-            <h2 className="text-2xl font-serif font-bold text-rose-900 dark:text-rose-200">Identity & Basics</h2>
+            <h2 className="text-2xl font-serif font-bold text-rose-900 dark:text-rose-200">Basics</h2>
             <div className="h-[1px] flex-grow bg-rose-100 dark:bg-rose-900/50" />
           </div>
           
@@ -142,7 +141,7 @@ const Questionnaire: React.FC<Props> = ({ onComplete }) => {
           </div>
         </section>
 
-        {/* II. CULTURE & VALUES */}
+        {/* II. CULTURE & CONTEXT */}
         <section className="space-y-12">
           <div className="flex items-center gap-4">
             <span className="text-xs font-bold text-rose-300 dark:text-rose-700 uppercase tracking-widest">02</span>
@@ -150,32 +149,25 @@ const Questionnaire: React.FC<Props> = ({ onComplete }) => {
             <div className="h-[1px] flex-grow bg-rose-100 dark:bg-rose-900/50" />
           </div>
 
-          <div className="space-y-10">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-              <div className="space-y-4">
-                <label className="text-sm font-semibold text-slate-700 dark:text-rose-300">Cultural Background</label>
-                <input type="text" value={data.culturalBackground} onChange={e => updateField('culturalBackground', e.target.value)} placeholder="e.g. South Asian, Latino, etc." className="w-full px-5 py-4 bg-white/70 dark:bg-rose-950/20 border border-rose-100 dark:border-rose-900/40 rounded-2xl outline-none dark:text-rose-100" />
-                <ImportanceSelector label="Cultural Importance" field="culturalImportance" />
-              </div>
-              <div className="space-y-4">
-                <label className="text-sm font-semibold text-slate-700 dark:text-rose-300">Religion / Spiritual Identity</label>
-                <input type="text" value={data.religion} onChange={e => updateField('religion', e.target.value)} placeholder="e.g. Catholic, Secular, Buddhist" className="w-full px-5 py-4 bg-white/70 dark:bg-rose-950/20 border border-rose-100 dark:border-rose-900/40 rounded-2xl outline-none dark:text-rose-100" />
-                <ImportanceSelector label="Religious Importance" field="religiousImportance" />
-              </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <div className="space-y-4">
+              <label className="text-sm font-semibold text-slate-700 dark:text-rose-300">Cultural Background</label>
+              <input type="text" value={data.culturalBackground} onChange={e => updateField('culturalBackground', e.target.value)} className="w-full px-5 py-4 bg-white/70 dark:bg-rose-950/20 border border-rose-100 dark:border-rose-900/40 rounded-2xl outline-none dark:text-rose-100" />
+              <ImportanceSelector label="Cultural Importance" field="culturalImportance" />
             </div>
-            <div className="space-y-4 max-w-md">
-              <label className="text-sm font-semibold text-slate-700 dark:text-rose-300">Political Identity</label>
-              <input type="text" value={data.politicalIdentity} onChange={e => updateField('politicalIdentity', e.target.value)} placeholder="e.g. Progressive, Libertarian, etc." className="w-full px-5 py-4 bg-white/70 dark:bg-rose-950/20 border border-rose-100 dark:border-rose-900/40 rounded-2xl outline-none dark:text-rose-100" />
-              <ImportanceSelector label="Political Importance" field="politicalImportance" />
+            <div className="space-y-4">
+              <label className="text-sm font-semibold text-slate-700 dark:text-rose-300">Religion / Spiritual Identity</label>
+              <input type="text" value={data.religion} onChange={e => updateField('religion', e.target.value)} className="w-full px-5 py-4 bg-white/70 dark:bg-rose-950/20 border border-rose-100 dark:border-rose-900/40 rounded-2xl outline-none dark:text-rose-100" />
+              <ImportanceSelector label="Religious Importance" field="religiousImportance" />
             </div>
           </div>
         </section>
 
-        {/* III. PATHWAY */}
+        {/* III. EDUCATION & PATH */}
         <section className="space-y-10">
           <div className="flex items-center gap-4">
             <span className="text-xs font-bold text-rose-300 dark:text-rose-700 uppercase tracking-widest">03</span>
-            <h2 className="text-2xl font-serif font-bold text-rose-900 dark:text-rose-200">Education & Logistics</h2>
+            <h2 className="text-2xl font-serif font-bold text-rose-900 dark:text-rose-200">Education & Path</h2>
             <div className="h-[1px] flex-grow bg-rose-100 dark:bg-rose-900/50" />
           </div>
 
@@ -189,19 +181,9 @@ const Questionnaire: React.FC<Props> = ({ onComplete }) => {
               <input type="text" value={data.gradYear} onChange={e => updateField('gradYear', e.target.value)} className="w-full px-5 py-4 bg-white/70 dark:bg-rose-950/20 border border-rose-100 dark:border-rose-900/40 rounded-2xl outline-none dark:text-rose-100" />
             </div>
           </div>
-
-          <div className="space-y-6">
-            <label className="text-sm font-semibold text-slate-700 dark:text-rose-300 block">Location committed after grad?</label>
-            <div className="flex flex-wrap gap-4">
-              {['Yes', 'No', 'Unsure'].map(opt => (
-                <button key={opt} type="button" onClick={() => updateField('locationCommitted', opt)} className={`px-8 py-3 rounded-2xl border text-sm font-bold transition-all ${data.locationCommitted === opt ? 'bg-rose-600 text-white border-rose-600' : 'bg-white/50 dark:bg-rose-950/20 dark:text-rose-300 border-rose-100 dark:border-rose-900/40'}`}>{opt}</button>
-              ))}
-            </div>
-            <input type="text" value={data.locationDetail} onChange={e => updateField('locationDetail', e.target.value)} placeholder="Target cities (e.g. NYC, SF, London)" className="w-full px-5 py-4 bg-white/70 dark:bg-rose-950/20 border border-rose-100 dark:border-rose-900/40 rounded-2xl outline-none dark:text-rose-100 shadow-inner" />
-          </div>
         </section>
 
-        {/* IV. AMBITION */}
+        {/* IV. AMBITION SECTION */}
         <section className="space-y-10">
           <div className="flex items-center gap-4">
             <span className="text-xs font-bold text-rose-300 dark:text-rose-700 uppercase tracking-widest">04</span>
@@ -218,36 +200,34 @@ const Questionnaire: React.FC<Props> = ({ onComplete }) => {
             ))}
           </div>
 
-          <div className="space-y-8">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-              <div className="space-y-2">
-                <label className="text-sm font-semibold text-slate-700 dark:text-rose-300">Instagram Handle</label>
-                <input type="text" value={data.instagramHandle} onChange={e => updateField('instagramHandle', e.target.value)} placeholder="@handle" className="w-full px-5 py-4 bg-white/70 dark:bg-rose-950/20 border border-rose-100 dark:border-rose-900/40 rounded-2xl outline-none dark:text-rose-100" />
-              </div>
-              <div className="space-y-2">
-                <label className="text-sm font-semibold text-slate-700 dark:text-rose-300">LinkedIn Profile</label>
-                <input type="text" value={data.linkedinHandle} onChange={e => updateField('linkedinHandle', e.target.value)} placeholder="linkedin.com/in/username" className="w-full px-5 py-4 bg-white/70 dark:bg-rose-950/20 border border-rose-100 dark:border-rose-900/40 rounded-2xl outline-none dark:text-rose-100" />
-              </div>
-            </div>
-
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             <div className="space-y-2">
-              <label className="text-sm font-semibold text-slate-700 dark:text-rose-300">Resume Copy Paste (Major Accomplishments List)</label>
-              <textarea rows={3} value={data.resumeAccomplishments} onChange={e => updateField('resumeAccomplishments', e.target.value)} placeholder="e.g. Built a solar car, Published research on LLMs..." className="w-full px-5 py-4 bg-white/70 dark:bg-rose-950/20 border border-rose-100 dark:border-rose-900/40 rounded-2xl outline-none dark:text-rose-100" />
+              <label className="text-sm font-semibold text-slate-700 dark:text-rose-300">Instagram Handle</label>
+              <input type="text" value={data.instagramHandle} onChange={e => updateField('instagramHandle', e.target.value)} placeholder="@handle" className="w-full px-5 py-4 bg-white/70 dark:bg-rose-950/20 border border-rose-100 dark:border-rose-900/40 rounded-2xl outline-none dark:text-rose-100" />
             </div>
-
             <div className="space-y-2">
-              <label className="text-sm font-semibold text-slate-700 dark:text-rose-300">Tell us more about hobbies</label>
-              <input type="text" value={data.hobbies} onChange={e => updateField('hobbies', e.target.value)} placeholder="Chess, climbing, writing, etc." className="w-full px-5 py-4 bg-white/70 dark:bg-rose-950/20 border border-rose-100 dark:border-rose-900/40 rounded-2xl outline-none dark:text-rose-100" />
+              <label className="text-sm font-semibold text-slate-700 dark:text-rose-300">LinkedIn Profile</label>
+              <input type="text" value={data.linkedinHandle} onChange={e => updateField('linkedinHandle', e.target.value)} placeholder="linkedin.com/in/username" className="w-full px-5 py-4 bg-white/70 dark:bg-rose-950/20 border border-rose-100 dark:border-rose-900/40 rounded-2xl outline-none dark:text-rose-100" />
             </div>
+          </div>
 
-            <div className="space-y-2">
-              <label className="text-sm font-semibold text-slate-700 dark:text-rose-300">Tell us more about why you're an exceptional individual</label>
-              <textarea rows={3} value={data.ambitionContext} onChange={e => updateField('ambitionContext', e.target.value)} placeholder="What are you building? Why are you different?" className="w-full px-5 py-4 bg-white/70 dark:bg-rose-950/20 border border-rose-100 dark:border-rose-900/40 rounded-2xl outline-none resize-none dark:text-rose-100 shadow-inner" />
-            </div>
+          <div className="space-y-2">
+            <label className="text-sm font-semibold text-slate-700 dark:text-rose-300">Resume Copy Paste (Major Accomplishments List)</label>
+            <textarea value={data.resumeAccomplishments} onChange={e => updateField('resumeAccomplishments', e.target.value)} rows={5} placeholder="Paste your major accomplishments or academic CV highlights here..." className="w-full px-5 py-4 bg-white/70 dark:bg-rose-950/20 border border-rose-100 dark:border-rose-900/40 rounded-2xl outline-none dark:text-rose-100 shadow-sm" />
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-sm font-semibold text-slate-700 dark:text-rose-300">Hobbies</label>
+            <textarea value={data.hobbies} onChange={e => updateField('hobbies', e.target.value)} rows={3} placeholder="What do you do for fun? Tell us about your intellectual or physical pursuits." className="w-full px-5 py-4 bg-white/70 dark:bg-rose-950/20 border border-rose-100 dark:border-rose-900/40 rounded-2xl outline-none dark:text-rose-100 shadow-sm" />
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-sm font-semibold text-slate-700 dark:text-rose-300">Tell us more about why you're an exceptional individual</label>
+            <textarea value={data.ambitionContext} onChange={e => updateField('ambitionContext', e.target.value)} rows={4} placeholder="Describe your trajectory, what makes you different, and what you aim to achieve." className="w-full px-5 py-4 bg-white/70 dark:bg-rose-950/20 border border-rose-100 dark:border-rose-900/40 rounded-2xl outline-none dark:text-rose-100 shadow-sm" />
           </div>
         </section>
 
-        {/* V. PHILOSOPHY */}
+        {/* V. OPEN-ENDED & PHILOSOPHY */}
         <section className="space-y-12">
           <div className="flex items-center gap-4">
             <span className="text-xs font-bold text-rose-300 dark:text-rose-700 uppercase tracking-widest">05</span>
@@ -255,7 +235,7 @@ const Questionnaire: React.FC<Props> = ({ onComplete }) => {
             <div className="h-[1px] flex-grow bg-rose-100 dark:bg-rose-900/50" />
           </div>
 
-          <div className="space-y-10">
+          <div className="space-y-8">
             <div className="space-y-3">
               <label className="text-sm font-bold text-rose-950 dark:text-rose-200">What are you looking for right now?</label>
               <textarea rows={2} value={data.lookingFor} onChange={e => updateField('lookingFor', e.target.value)} className="w-full px-5 py-4 bg-white/70 dark:bg-rose-950/20 border border-rose-100 dark:border-rose-900/40 rounded-2xl outline-none dark:text-rose-100 shadow-sm" />
@@ -263,20 +243,6 @@ const Questionnaire: React.FC<Props> = ({ onComplete }) => {
             <div className="space-y-3">
               <label className="text-sm font-bold text-rose-950 dark:text-rose-200">Describe your ideal intellectual partner</label>
               <textarea rows={2} value={data.idealPartner} onChange={e => updateField('idealPartner', e.target.value)} className="w-full px-5 py-4 bg-white/70 dark:bg-rose-950/20 border border-rose-100 dark:border-rose-900/40 rounded-2xl outline-none dark:text-rose-100 shadow-sm" />
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-              <div className="space-y-3">
-                <label className="text-sm font-bold text-rose-950 dark:text-rose-200">First date idea?</label>
-                <input type="text" value={data.firstDate} onChange={e => updateField('firstDate', e.target.value)} className="w-full px-5 py-4 bg-white/70 dark:bg-rose-950/20 border border-rose-100 dark:border-rose-900/40 rounded-2xl outline-none dark:text-rose-100 shadow-sm" />
-              </div>
-              <div className="space-y-3">
-                <label className="text-sm font-bold text-rose-950 dark:text-rose-200">What are you excited to build in 5 years?</label>
-                <input type="text" value={data.excitedToBuild} onChange={e => updateField('excitedToBuild', e.target.value)} className="w-full px-5 py-4 bg-white/70 dark:bg-rose-950/20 border border-rose-100 dark:border-rose-900/40 rounded-2xl outline-none dark:text-rose-100 shadow-sm" />
-              </div>
-            </div>
-            <div className="space-y-3">
-              <label className="text-sm font-bold text-rose-950 dark:text-rose-200">Absolute Dealbreakers?</label>
-              <textarea rows={2} value={data.dealbreakers} onChange={e => updateField('dealbreakers', e.target.value)} className="w-full px-5 py-4 bg-white/70 dark:bg-rose-950/20 border border-rose-100 dark:border-rose-900/40 rounded-2xl outline-none dark:text-rose-100 shadow-sm" />
             </div>
           </div>
         </section>
@@ -306,7 +272,7 @@ const Questionnaire: React.FC<Props> = ({ onComplete }) => {
           <button type="button" onClick={handleSubmit} disabled={!isValid || isSubmitting} className={`w-full py-7 rounded-3xl font-black uppercase tracking-widest transition-all relative z-10 ${isValid && !isSubmitting ? 'bg-rose-600 hover:bg-rose-500 text-white shadow-2xl hover:scale-[1.02]' : 'bg-rose-900/50 text-rose-800 cursor-not-allowed'}`}>
             {isSubmitting ? 'Syncing to Registry...' : 
              syncResult === 'success' ? 'Application Received' :
-             syncResult === 'error' ? 'Saved (Sync Delayed)' :
+             syncResult === 'error' ? 'Sync Issue (Check Network)' :
              isValid ? 'Submit Application' : 'Fill All Required Fields'}
           </button>
         </section>

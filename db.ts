@@ -1,83 +1,65 @@
-
 import { QuestionnaireData } from './types';
 
-// Using a fresh, unique bucket ID to ensure no collisions with previous versions
-const BUCKET_ID = 'covalent_prod_final_v5_global';
+// Using a fresh bucket ID for a clean slate to avoid synchronization "islands" from previous versions
+const BUCKET_ID = 'covalent_master_sync_v10_final';
 const BASE_URL = `https://kvdb.io/A8Y4k9P7pG6J1z8wM2n3/`;
 
 export const db = {
   async saveSubmission(submission: QuestionnaireData): Promise<boolean> {
-    // 1. Local backup
-    const local = JSON.parse(localStorage.getItem('covalent_submissions') || '[]');
-    localStorage.setItem('covalent_submissions', JSON.stringify([submission, ...local]));
-
     try {
-      // 2. Critical: Fetch remote with cache busting to get the ABSOLUTE latest
-      const response = await fetch(`${BASE_URL}${BUCKET_ID}?t=${Date.now()}`, {
-        method: 'GET',
-        mode: 'cors',
+      // 1. Fetch current global state directly from cloud, strictly bypassing cache
+      const getResponse = await fetch(`${BASE_URL}${BUCKET_ID}?t=${Date.now()}`, {
         headers: { 'Accept': 'application/json' },
         cache: 'no-store'
       });
       
-      let remote: QuestionnaireData[] = [];
-      if (response.ok) {
-        const text = await response.text();
-        remote = text ? JSON.parse(text) : [];
+      let remoteList: QuestionnaireData[] = [];
+      if (getResponse.ok) {
+        const text = await getResponse.text();
+        remoteList = text ? JSON.parse(text) : [];
       }
 
-      // 3. Merge EVERYTHING (Local cache + Remote + Current submission)
-      // This ensures that even if a device was offline, its old submissions eventually get pushed.
-      const allSubmissions = [submission, ...local, ...remote];
-      const merged = allSubmissions.reduce((acc: QuestionnaireData[], curr) => {
-        if (!acc.find(item => item.id === curr.id)) acc.push(curr);
-        return acc;
-      }, []);
+      // 2. Merge current submission with the remote list. 
+      // De-duplication by ID is critical if a user hits submit twice or on separate devices.
+      const updatedList = [submission, ...remoteList];
+      const uniqueList = Array.from(new Map(updatedList.map(item => [item.id, item])).values());
 
-      // 4. Push to Cloud
+      // 3. Push back the full global list
       const pushResponse = await fetch(`${BASE_URL}${BUCKET_ID}`, {
         method: 'POST',
-        mode: 'cors',
-        body: JSON.stringify(merged),
+        body: JSON.stringify(uniqueList),
         headers: { 'Content-Type': 'application/json' }
       });
 
       if (!pushResponse.ok) throw new Error("Cloud push failed");
       
-      localStorage.setItem('covalent_submissions', JSON.stringify(merged));
       return true;
     } catch (err) {
-      console.error('CRITICAL SYNC ERROR:', err);
+      console.error('Critical sync failure:', err);
+      // Still allow local persistence as a safety net
+      const local = JSON.parse(localStorage.getItem('covalent_fallback') || '[]');
+      localStorage.setItem('covalent_fallback', JSON.stringify([submission, ...local]));
       return false;
     }
   },
 
   async getAllSubmissions(): Promise<QuestionnaireData[]> {
     try {
-      // Use timestamp query to bypass any carrier or browser level caching
+      // Admin dashboard MUST only rely on the cloud to ensure all devices show the same count
       const response = await fetch(`${BASE_URL}${BUCKET_ID}?t=${Date.now()}`, {
         method: 'GET',
-        mode: 'cors',
         cache: 'no-store',
         headers: { 'Accept': 'application/json' }
       });
       
-      if (!response.ok) throw new Error("Registry unreachable");
+      if (!response.ok) throw new Error("Could not reach cloud registry");
       
-      const remote = await response.json();
-      const local = JSON.parse(localStorage.getItem('covalent_submissions') || '[]');
-      
-      // Merge local with remote to ensure any unsynced local data is visible to the admin
-      const merged = [...local, ...remote].reduce((acc: QuestionnaireData[], curr) => {
-        if (!acc.find(item => item.id === curr.id)) acc.push(curr);
-        return acc;
-      }, []);
-      
-      localStorage.setItem('covalent_submissions', JSON.stringify(merged));
-      return merged;
+      const remoteData = await response.json();
+      return Array.isArray(remoteData) ? remoteData : [];
     } catch (err) {
-      console.warn('Network issue, falling back to local storage.');
-      return JSON.parse(localStorage.getItem('covalent_submissions') || '[]');
+      console.error("Failed to fetch global registry:", err);
+      // Only as a absolute last resort show local data
+      return JSON.parse(localStorage.getItem('covalent_fallback') || '[]');
     }
   },
 
@@ -85,13 +67,12 @@ export const db = {
     try {
       await fetch(`${BASE_URL}${BUCKET_ID}`, {
         method: 'POST',
-        mode: 'cors',
         body: JSON.stringify([]),
         headers: { 'Content-Type': 'application/json' }
       });
-      localStorage.removeItem('covalent_submissions');
+      localStorage.removeItem('covalent_fallback');
     } catch (err) {
-      console.error("Clear failed:", err);
+      console.error("Registry clear failed:", err);
     }
   }
 };
