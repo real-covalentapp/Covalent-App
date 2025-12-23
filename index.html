@@ -8,65 +8,107 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Crimson+Pro:ital,wght@0,400;0,700;1,400&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Crimson+Pro:ital,wght@0,400;0,700;1,400&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script>
+      tailwind.config = {
+        darkMode: 'class',
+        theme: {
+          extend: {
+            fontFamily: {
+              serif: ['Crimson Pro', 'serif'],
+              sans: ['Inter', 'sans-serif'],
+            },
+          }
+        }
+      }
+    </script>
     <style>
       body {
-        font-family: 'Inter', sans-serif;
         margin: 0;
         padding: 0;
+        transition: background-color 0.3s ease, color 0.3s ease;
       }
-      h1, h2, h3, .font-serif {
-        font-family: 'Crimson Pro', serif;
-      }
-      .bg-romantic-canvas {
+      
+      /* Patterned Background */
+      .bg-pattern {
         background-color: #fffafb;
+        background-image: 
+          radial-gradient(#fecdd3 0.5px, transparent 0.5px), 
+          radial-gradient(#fecdd3 0.5px, #fffafb 0.5px);
+        background-size: 20px 20px;
+        background-position: 0 0, 10px 10px;
       }
-      .text-romantic-accent {
-        color: #be123c;
-      }
-      .bg-romantic-accent {
-        background-color: #be123c;
-      }
-      .border-romantic-soft {
-        border-color: #ffe4e6;
-      }
-
-      /* Custom scrollbar for Admin Dashboard */
-      .custom-scrollbar::-webkit-scrollbar {
-        width: 6px;
-      }
-      .custom-scrollbar::-webkit-scrollbar-track {
-        background: transparent;
-      }
-      .custom-scrollbar::-webkit-scrollbar-thumb {
-        background: #fecdd3;
-        border-radius: 10px;
-      }
-      .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-        background: #fb7185;
+      
+      .dark .bg-pattern {
+        background-color: #1a0b0e;
+        background-image: 
+          radial-gradient(#4c1d24 0.5px, transparent 0.5px), 
+          radial-gradient(#4c1d24 0.5px, #1a0b0e 0.5px);
       }
 
-      /* Ensure root takes full height */
-      #root {
-        min-height: 100vh;
-        display: flex;
-        flex-direction: column;
+      /* Pink floral romantic background overlay */
+      .floral-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        z-index: -1;
+        background-image: 
+          linear-gradient(rgba(255, 250, 251, 0.8), rgba(255, 250, 251, 0.85)), 
+          url('https://images.unsplash.com/photo-1518895949257-7621c3c786d7?q=80&w=2000&auto=format&fit=crop');
+        background-size: cover;
+        background-position: center;
+        background-attachment: fixed;
+        opacity: 0.4;
+      }
+      
+      .dark .floral-overlay {
+        background-image: 
+          linear-gradient(rgba(26, 11, 14, 0.9), rgba(26, 11, 14, 0.95)), 
+          url('https://images.unsplash.com/photo-1518895949257-7621c3c786d7?q=80&w=2000&auto=format&fit=crop');
+        opacity: 0.3;
+      }
+
+      .btn-gradient-pink {
+        background: linear-gradient(135deg, #f43f5e 0%, #ec4899 100%);
+        box-shadow: 0 10px 30px -5px rgba(244, 63, 94, 0.4);
+        transition: all 0.3s ease;
+      }
+      .btn-gradient-pink:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 15px 40px -5px rgba(244, 63, 94, 0.5);
+      }
+
+      .custom-scrollbar::-webkit-scrollbar { width: 6px; }
+      .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+      .custom-scrollbar::-webkit-scrollbar-thumb { background: #fecdd3; border-radius: 10px; }
+      .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #fb7185; }
+
+      #root { min-height: 100vh; display: flex; flex-direction: column; }
+
+      /* Cute floating flowers */
+      .flower-decoration {
+        position: absolute;
+        pointer-events: none;
+        z-index: 1;
+        opacity: 0.6;
+        filter: drop-shadow(0 4px 6px rgba(0,0,0,0.05));
       }
     </style>
-  <script type="importmap">
-{
-  "imports": {
-    "react-dom/": "https://esm.sh/react-dom@^19.2.3/",
-    "react/": "https://esm.sh/react@^19.2.3/",
-    "react": "https://esm.sh/react@^19.2.3"
-  }
-}
-</script>
-</head>
-  <body class="bg-romantic-canvas text-slate-900">
+    <script type="importmap">
+    {
+      "imports": {
+        "react-dom/": "https://esm.sh/react-dom@^19.2.3/",
+        "react/": "https://esm.sh/react@^19.2.3/",
+        "react": "https://esm.sh/react@^19.2.3"
+      }
+    }
+    </script>
+  </head>
+  <body class="bg-pattern transition-colors duration-300">
+    <div class="floral-overlay"></div>
     <div id="root"></div>
-    
-    <!-- This script tag is essential for Vite to find and bundle your React code -->
     <script type="module" src="/index.tsx"></script>
   </body>
 </html>

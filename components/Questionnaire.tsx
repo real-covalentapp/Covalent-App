@@ -1,23 +1,17 @@
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { QuestionnaireData, INITIAL_DATA, Importance, Gender } from '../types';
+import { db } from '../db';
 
 interface Props {
   onComplete: () => void;
 }
 
-const STEPS = [
-  'Basics',
-  'Culture',
-  'Path',
-  'Ambition',
-  'Open Ended',
-  'Commitment'
-];
-
 const Questionnaire: React.FC<Props> = ({ onComplete }) => {
-  const [step, setStep] = useState(0);
   const [data, setData] = useState<QuestionnaireData>(INITIAL_DATA);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [progress, setProgress] = useState(0);
+  const formRef = useRef<HTMLDivElement>(null);
 
   const updateField = (field: keyof QuestionnaireData, value: any) => {
     setData(prev => ({ ...prev, [field]: value }));
@@ -33,475 +27,314 @@ const Questionnaire: React.FC<Props> = ({ onComplete }) => {
     });
   };
 
-  const nextStep = () => {
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-    setStep(s => Math.min(s + 1, STEPS.length - 1));
-  };
-  const prevStep = () => {
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-    setStep(s => Math.max(s - 1, 0));
-  };
+  // Calculate progress based on filled required fields
+  useEffect(() => {
+    const required = [
+      data.fullName, data.email, data.age, data.gender, 
+      data.interestedIn.length > 0, data.major, data.gradYear,
+      data.careerDirection, data.lookingFor, data.idealPartner,
+      data.understandsOneMatch, data.willingToExplore
+    ];
+    const filled = required.filter(Boolean).length;
+    setProgress((filled / required.length) * 100);
+  }, [data]);
 
-  const handleSubmit = () => {
-    const finalData = {
-      ...data,
-      id: Math.random().toString(36).substr(2, 9),
-      submittedAt: new Date().toISOString()
-    };
-
-    const existing = JSON.parse(localStorage.getItem('covalent_submissions') || '[]');
-    localStorage.setItem('covalent_submissions', JSON.stringify([...existing, finalData]));
-    
-    onComplete();
-  };
-
-  const isStepValid = useCallback(() => {
-    if (step === 0) return data.fullName && data.email && data.age && data.gender && data.interestedIn.length > 0;
-    if (step === 1) return true;
-    if (step === 2) {
-      const careerValid = data.careerDirection !== 'other' || data.careerOther;
-      return data.major && data.gradYear && data.careerDirection && careerValid && data.locationCommitted;
+  const handleSubmit = async () => {
+    setIsSubmitting(true);
+    try {
+      const finalData = {
+        ...data,
+        id: Math.random().toString(36).substr(2, 9),
+        submittedAt: new Date().toISOString()
+      };
+      await db.saveSubmission(finalData);
+      onComplete();
+    } catch (err) {
+      alert("Connectivity issue. Your data is saved locally but couldn't sync to the cloud.");
+    } finally {
+      setIsSubmitting(false);
     }
-    if (step === 4) return data.lookingFor && data.idealPartner && data.firstDate && data.lifeContext && data.excitedToBuild;
-    if (step === 5) return data.understandsOneMatch && data.willingToExplore;
-    return true;
-  }, [step, data]);
+  };
+
+  const isValid = progress === 100;
 
   return (
-    <div className="max-w-2xl mx-auto px-6 py-12 animate-in slide-in-from-bottom-4 duration-500">
-      {/* Progress */}
-      <div className="mb-12">
-        <div className="flex justify-between text-[10px] font-bold uppercase tracking-widest text-rose-400 mb-4">
-          <span>Phase {step + 1} of {STEPS.length}</span>
-          <span className="text-rose-900">{STEPS[step]}</span>
-        </div>
-        <div className="h-1.5 w-full bg-rose-100 rounded-full overflow-hidden">
+    <div className="max-w-3xl mx-auto px-6 py-16 animate-in fade-in slide-in-from-bottom-8 duration-700">
+      {/* Floating Progress Tracker */}
+      <div className="fixed left-8 top-1/2 -translate-y-1/2 hidden xl:flex flex-col gap-4 items-center">
+        <div className="h-48 w-1 bg-rose-100 dark:bg-rose-900 rounded-full relative overflow-hidden">
           <div 
-            className="h-full bg-rose-600 transition-all duration-500 ease-out shadow-sm" 
-            style={{ width: `${((step + 1) / STEPS.length) * 100}%` }}
+            className="absolute top-0 w-full bg-rose-600 transition-all duration-500"
+            style={{ height: `${progress}%` }}
           />
         </div>
+        <span className="text-[10px] font-bold text-rose-400 rotate-90 mt-8 uppercase tracking-widest whitespace-nowrap">
+          {Math.round(progress)}% Complete
+        </span>
       </div>
 
-      <div className="bg-white p-8 md:p-12 rounded-[2.5rem] shadow-xl shadow-rose-900/5 border border-rose-50 min-h-[500px] flex flex-col">
-        {step === 0 && (
-          <div className="space-y-6">
-            <h2 className="text-3xl font-serif font-bold text-rose-950 mb-8">The Basics</h2>
-            <div>
-              <label className="block text-sm font-semibold text-slate-700 mb-2">Full Name</label>
+      <header className="mb-20 text-center">
+        <h1 className="text-5xl font-serif font-bold text-rose-950 dark:text-rose-100 mb-4 italic">The Cohort Application</h1>
+        <p className="text-slate-500 dark:text-rose-300 max-w-lg mx-auto leading-relaxed">
+          Please provide a high-fidelity signal of your trajectory. We hand-review every application for the upcoming match cycle.
+        </p>
+      </header>
+
+      <div ref={formRef} className="space-y-24">
+        {/* I. IDENTITY */}
+        <section className="space-y-10 group">
+          <div className="flex items-center gap-4">
+            <span className="text-xs font-bold text-rose-300 dark:text-rose-700 uppercase tracking-widest">01</span>
+            <h2 className="text-2xl font-serif font-bold text-rose-900 dark:text-rose-200">Identity & Contact</h2>
+            <div className="h-[1px] flex-grow bg-rose-100 dark:bg-rose-900/50" />
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <div className="space-y-2">
+              <label className="text-sm font-semibold text-slate-700 dark:text-rose-300">Full Name</label>
               <input 
                 type="text"
                 value={data.fullName}
                 onChange={e => updateField('fullName', e.target.value)}
-                placeholder="Jordan Smith"
-                className="w-full px-4 py-3 bg-rose-50/30 border border-rose-100 rounded-2xl focus:ring-2 focus:ring-rose-500 focus:border-rose-500 outline-none transition-all"
+                className="w-full px-5 py-4 bg-white/70 dark:bg-rose-950/20 border border-rose-100 dark:border-rose-900/40 rounded-2xl focus:ring-2 focus:ring-rose-500 transition-all outline-none shadow-sm dark:text-rose-100"
+                placeholder="Julian Thorne"
               />
             </div>
-            <div>
-              <label className="block text-sm font-semibold text-slate-700 mb-2">Email Address</label>
-              <p className="text-xs text-rose-400 mb-2">(Used only to notify you of matches)</p>
+            <div className="space-y-2">
+              <label className="text-sm font-semibold text-slate-700 dark:text-rose-300">Institutional Email</label>
               <input 
                 type="email"
                 value={data.email}
                 onChange={e => updateField('email', e.target.value)}
+                className="w-full px-5 py-4 bg-white/70 dark:bg-rose-950/20 border border-rose-100 dark:border-rose-900/40 rounded-2xl focus:ring-2 focus:ring-rose-500 transition-all outline-none shadow-sm dark:text-rose-100"
                 placeholder="name@university.edu"
-                className="w-full px-4 py-3 bg-rose-50/30 border border-rose-100 rounded-2xl focus:ring-2 focus:ring-rose-500 focus:border-rose-500 outline-none transition-all"
               />
             </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-semibold text-slate-700 mb-2">Age</label>
-                <input 
-                  type="number"
-                  value={data.age}
-                  onChange={e => updateField('age', e.target.value)}
-                  placeholder="21"
-                  className="w-full px-4 py-3 bg-rose-50/30 border border-rose-100 rounded-2xl focus:ring-2 focus:ring-rose-500 outline-none transition-all"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-semibold text-slate-700 mb-2">Your Gender</label>
-                <select 
-                  value={data.gender}
-                  onChange={e => updateField('gender', e.target.value)}
-                  className="w-full px-4 py-3 bg-rose-50/30 border border-rose-100 rounded-2xl focus:ring-2 focus:ring-rose-500 outline-none transition-all appearance-none"
+            <div className="space-y-2">
+              <label className="text-sm font-semibold text-slate-700 dark:text-rose-300">Age</label>
+              <input 
+                type="number"
+                value={data.age}
+                onChange={e => updateField('age', e.target.value)}
+                className="w-full px-5 py-4 bg-white/70 dark:bg-rose-950/20 border border-rose-100 dark:border-rose-900/40 rounded-2xl outline-none dark:text-rose-100"
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-semibold text-slate-700 dark:text-rose-300">Gender</label>
+              <select 
+                value={data.gender}
+                onChange={e => updateField('gender', e.target.value)}
+                className="w-full px-5 py-4 bg-white/70 dark:bg-rose-950/20 border border-rose-100 dark:border-rose-900/40 rounded-2xl outline-none appearance-none dark:text-rose-100"
+              >
+                <option value="">Select</option>
+                <option value="Man">Man</option>
+                <option value="Woman">Woman</option>
+                <option value="Non-binary">Non-binary</option>
+                <option value="Other">Other</option>
+              </select>
+            </div>
+          </div>
+
+          <div className="space-y-4">
+            <label className="text-sm font-semibold text-slate-700 dark:text-rose-300 block">Matching with</label>
+            <div className="flex flex-wrap gap-3">
+              {['Man', 'Woman', 'Non-binary'].map(g => (
+                <button
+                  key={g}
+                  onClick={() => handleCheckboxChange('interestedIn', g)}
+                  className={`px-6 py-3 rounded-full border text-sm font-medium transition-all ${
+                    data.interestedIn.includes(g as Gender) ? 'bg-rose-950 dark:bg-rose-100 text-white dark:text-rose-950 border-rose-950 dark:border-rose-100 shadow-lg' : 'bg-white/70 dark:bg-rose-900/10 text-rose-700 dark:text-rose-400 border-rose-100 dark:border-rose-900/30'
+                  }`}
                 >
-                  <option value="">Select</option>
-                  <option value="Man">Man</option>
-                  <option value="Woman">Woman</option>
-                  <option value="Non-binary">Non-binary</option>
-                  <option value="Other">Other</option>
-                </select>
-              </div>
-            </div>
-            <div>
-              <label className="block text-sm font-semibold text-slate-700 mb-2">Interested in matching with</label>
-              <div className="flex flex-wrap gap-3 mt-2">
-                {['Man', 'Woman', 'Non-binary'].map(g => (
-                  <button
-                    key={g}
-                    onClick={() => handleCheckboxChange('interestedIn', g)}
-                    className={`px-5 py-2.5 rounded-full border text-sm font-medium transition-all ${
-                      data.interestedIn.includes(g as Gender)
-                      ? 'bg-rose-600 text-white border-rose-600'
-                      : 'bg-white text-rose-700 border-rose-200 hover:border-rose-400'
-                    }`}
-                  >
-                    {g}
-                  </button>
-                ))}
-              </div>
+                  {g}
+                </button>
+              ))}
             </div>
           </div>
-        )}
+        </section>
 
-        {step === 1 && (
-          <div className="space-y-8">
-            <h2 className="text-3xl font-serif font-bold text-rose-950 mb-4">Culture & Context</h2>
-            
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-semibold text-slate-700 mb-2">Cultural background (optional)</label>
-                <input 
-                  type="text"
-                  value={data.culturalBackground}
-                  onChange={e => updateField('culturalBackground', e.target.value)}
-                  className="w-full px-4 py-3 bg-rose-50/30 border border-rose-100 rounded-2xl outline-none"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-semibold text-slate-700 mb-2">Importance of cultural alignment?</label>
-                <div className="grid grid-cols-3 gap-2">
-                  {['Not important', 'Somewhat important', 'Very important'].map(opt => (
-                    <button
-                      key={opt}
-                      onClick={() => updateField('culturalImportance', opt)}
-                      className={`py-2 text-xs font-semibold border rounded-xl transition-all ${
-                        data.culturalImportance === opt ? 'bg-rose-100 text-rose-900 border-rose-300' : 'bg-white border-rose-100 text-slate-500'
-                      }`}
-                    >
-                      {opt}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </div>
-
-            <div className="space-y-4 pt-6 border-t border-rose-50">
-              <div>
-                <label className="block text-sm font-semibold text-slate-700 mb-2">Religion / Spiritual identity (optional)</label>
-                <input 
-                  type="text"
-                  value={data.religion}
-                  onChange={e => updateField('religion', e.target.value)}
-                  className="w-full px-4 py-3 bg-rose-50/30 border border-rose-100 rounded-2xl outline-none"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-semibold text-slate-700 mb-2">Importance of religious alignment?</label>
-                <div className="grid grid-cols-3 gap-2">
-                  {['Not important', 'Somewhat important', 'Very important'].map(opt => (
-                    <button
-                      key={opt}
-                      onClick={() => updateField('religiousImportance', opt)}
-                      className={`py-2 text-xs font-semibold border rounded-xl transition-all ${
-                        data.religiousImportance === opt ? 'bg-rose-100 text-rose-900 border-rose-300' : 'bg-white border-rose-100 text-slate-500'
-                      }`}
-                    >
-                      {opt}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </div>
+        {/* II. TRAJECTORY */}
+        <section className="space-y-10">
+          <div className="flex items-center gap-4">
+            <span className="text-xs font-bold text-rose-300 dark:text-rose-700 uppercase tracking-widest">02</span>
+            <h2 className="text-2xl font-serif font-bold text-rose-900 dark:text-rose-200">Education & Trajectory</h2>
+            <div className="h-[1px] flex-grow bg-rose-100 dark:bg-rose-900/50" />
           </div>
-        )}
 
-        {step === 2 && (
-          <div className="space-y-6">
-            <h2 className="text-3xl font-serif font-bold text-rose-950 mb-8">Education & Path</h2>
-            <div>
-              <label className="block text-sm font-semibold text-slate-700 mb-2">Major(s) / Field(s) of study</label>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <div className="space-y-2">
+              <label className="text-sm font-semibold text-slate-700 dark:text-rose-300">Primary Field of Study</label>
               <input 
                 type="text"
                 value={data.major}
                 onChange={e => updateField('major', e.target.value)}
-                placeholder="Physics & Philosophy"
-                className="w-full px-4 py-3 bg-rose-50/30 border border-rose-100 rounded-2xl outline-none"
+                placeholder="Theoretical Physics"
+                className="w-full px-5 py-4 bg-white/70 dark:bg-rose-950/20 border border-rose-100 dark:border-rose-900/40 rounded-2xl outline-none dark:text-rose-100"
               />
             </div>
-            <div>
-              <label className="block text-sm font-semibold text-slate-700 mb-2">Graduation Year</label>
+            <div className="space-y-2">
+              <label className="text-sm font-semibold text-slate-700 dark:text-rose-300">Graduation Year</label>
               <input 
                 type="text"
                 value={data.gradYear}
                 onChange={e => updateField('gradYear', e.target.value)}
                 placeholder="2025"
-                className="w-full px-4 py-3 bg-rose-50/30 border border-rose-100 rounded-2xl outline-none"
+                className="w-full px-5 py-4 bg-white/70 dark:bg-rose-950/20 border border-rose-100 dark:border-rose-900/40 rounded-2xl outline-none dark:text-rose-100"
               />
             </div>
-            <div>
-              <label className="block text-sm font-semibold text-slate-700 mb-2">Broad Career Direction</label>
-              <select 
-                value={data.careerDirection}
-                onChange={e => updateField('careerDirection', e.target.value)}
-                className="w-full px-4 py-3 bg-rose-50/30 border border-rose-100 rounded-2xl outline-none appearance-none"
-              >
-                <option value="">Select</option>
-                <option value="finance">Finance</option>
-                <option value="tech">Tech</option>
-                <option value="medicine">Medicine</option>
-                <option value="law">Law</option>
-                <option value="academia">Academia</option>
-                <option value="startup">Startup</option>
-                <option value="still exploring">Still Exploring</option>
-                <option value="other">Other</option>
-              </select>
-              {data.careerDirection === 'other' && (
-                <input 
-                  type="text"
-                  value={data.careerOther}
-                  onChange={e => updateField('careerOther', e.target.value)}
-                  placeholder="Please specify..."
-                  className="w-full mt-3 px-4 py-3 bg-rose-50/30 border border-rose-100 rounded-2xl outline-none animate-in fade-in slide-in-from-top-2 duration-300"
-                />
-              )}
-            </div>
-            <div>
-              <label className="block text-sm font-semibold text-slate-700 mb-2">Post-grad location plans?</label>
-              <div className="flex gap-3 mb-3">
-                {['Yes', 'No', 'Unsure'].map(opt => (
-                  <button
-                    key={opt}
-                    onClick={() => updateField('locationCommitted', opt)}
-                    className={`px-6 py-2 rounded-full border text-sm font-medium transition-all ${
-                      data.locationCommitted === opt ? 'bg-rose-600 text-white border-rose-600' : 'bg-white border-rose-200 text-slate-600'
-                    }`}
-                  >
-                    {opt}
-                  </button>
-                ))}
-              </div>
-            </div>
           </div>
-        )}
 
-        {step === 3 && (
-          <div className="space-y-6">
-            <h2 className="text-3xl font-serif font-bold text-rose-950 mb-2">Ambition Signal</h2>
-            <p className="text-slate-500 text-sm mb-6">Signals of excellence help us match you with your intellectual equal.</p>
-            
-            <div className="space-y-3">
-              {[
-                'Strong academic performance',
-                'Notable work experience or leadership',
-                'Research / creative / technical output',
-                'Entrepreneurial or independent projects'
-              ].map(trait => (
-                <div 
-                  key={trait}
-                  onClick={() => handleCheckboxChange('exceptionalTraits', trait)}
-                  className={`p-4 border rounded-2xl cursor-pointer transition-all flex items-center gap-3 ${
-                    data.exceptionalTraits.includes(trait) ? 'bg-rose-50 border-rose-300 shadow-sm' : 'bg-rose-50/30 border-rose-100'
+          <div className="space-y-4">
+            <label className="text-sm font-semibold text-slate-700 dark:text-rose-300">Intended Career Path</label>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              {['Finance', 'Tech', 'Medicine', 'Law', 'Academia', 'Startup', 'Other'].map(path => (
+                <button
+                  key={path}
+                  onClick={() => updateField('careerDirection', path.toLowerCase())}
+                  className={`py-3 rounded-xl border text-xs font-bold uppercase tracking-wider transition-all ${
+                    data.careerDirection === path.toLowerCase() ? 'bg-rose-600 text-white border-rose-600 shadow-md' : 'bg-white/70 dark:bg-rose-900/10 text-rose-800 dark:text-rose-300 border-rose-100 dark:border-rose-900/30 hover:border-rose-300'
                   }`}
                 >
-                  <div className={`w-5 h-5 rounded border-2 flex items-center justify-center ${data.exceptionalTraits.includes(trait) ? 'bg-rose-600 border-rose-600' : 'bg-white border-rose-200'}`}>
-                    {data.exceptionalTraits.includes(trait) && <div className="w-2.5 h-2.5 bg-white rounded-sm" />}
-                  </div>
-                  <span className="text-sm font-semibold text-rose-950">{trait}</span>
-                </div>
+                  {path}
+                </button>
               ))}
             </div>
+            {data.careerDirection === 'other' && (
+              <input 
+                type="text"
+                value={data.careerOther}
+                onChange={e => updateField('careerOther', e.target.value)}
+                placeholder="Specify your field..."
+                className="w-full px-5 py-4 bg-rose-50 dark:bg-rose-900/20 border border-rose-100 dark:border-rose-900/30 rounded-2xl outline-none animate-in fade-in slide-in-from-top-2 dark:text-rose-100"
+              />
+            )}
+          </div>
+        </section>
 
-            <div>
-              <label className="block text-sm font-semibold text-slate-700 mb-2">Contextual Brief (optional)</label>
-              <textarea 
-                rows={3}
-                value={data.ambitionContext}
-                onChange={e => updateField('ambitionContext', e.target.value)}
-                className="w-full px-4 py-3 bg-rose-50/30 border border-rose-100 rounded-2xl outline-none"
-                placeholder="What are you most proud of building?"
+        {/* III. AMBITION */}
+        <section className="space-y-10">
+          <div className="flex items-center gap-4">
+            <span className="text-xs font-bold text-rose-300 dark:text-rose-700 uppercase tracking-widest">03</span>
+            <h2 className="text-2xl font-serif font-bold text-rose-900 dark:text-rose-200">Ambition Signals</h2>
+            <div className="h-[1px] flex-grow bg-rose-100 dark:bg-rose-900/50" />
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {[
+              'Strong academic performance',
+              'Notable leadership experience',
+              'Research or technical output',
+              'Entrepreneurial track record'
+            ].map(trait => (
+              <div 
+                key={trait}
+                onClick={() => handleCheckboxChange('exceptionalTraits', trait)}
+                className={`p-5 border rounded-[2rem] cursor-pointer transition-all flex items-center gap-4 ${
+                  data.exceptionalTraits.includes(trait) ? 'bg-rose-950 dark:bg-rose-100 text-white dark:text-rose-950 border-rose-950 dark:border-rose-100 shadow-xl scale-[1.02]' : 'bg-white/70 dark:bg-rose-900/10 border-rose-50 dark:border-rose-900/30 text-rose-950 dark:text-rose-200'
+                }`}
+              >
+                <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center shrink-0 ${data.exceptionalTraits.includes(trait) ? 'bg-rose-500 border-rose-500' : 'bg-rose-50 dark:bg-rose-950 border-rose-100 dark:border-rose-800'}`}>
+                  {data.exceptionalTraits.includes(trait) && <div className="w-2 h-2 bg-white rounded-full" />}
+                </div>
+                <span className="text-xs font-bold uppercase tracking-wider">{trait}</span>
+              </div>
+            ))}
+          </div>
+
+          <div className="space-y-6">
+            <div className="space-y-2">
+              <label className="text-sm font-semibold text-slate-700 dark:text-rose-300">LinkedIn Profile (URL or handle)</label>
+              <input 
+                type="text"
+                value={data.linkedinHandle}
+                onChange={e => updateField('linkedinHandle', e.target.value)}
+                className="w-full px-5 py-4 bg-white/70 dark:bg-rose-950/20 border border-rose-100 dark:border-rose-900/40 rounded-2xl outline-none dark:text-rose-100"
+                placeholder="in/yourprofile"
               />
             </div>
-
-            <div>
-              <label className="block text-sm font-semibold text-slate-700 mb-2">Resume upload (optional but encouraged)</label>
-              <div className="border-2 border-dashed border-rose-200 rounded-2xl p-8 text-center bg-rose-50/10 hover:bg-rose-50/30 transition-colors">
-                <input 
-                  type="file" 
-                  accept=".pdf"
-                  onChange={e => updateField('resumeFileName', e.target.files?.[0]?.name || '')}
-                  className="hidden" 
-                  id="resume-upload" 
-                />
-                <label htmlFor="resume-upload" className="cursor-pointer">
-                  <div className="text-rose-600 text-2xl mb-2">📄</div>
-                  <span className="text-rose-400 text-sm block">
-                    {data.resumeFileName || "Click to upload your curriculum vitae (PDF)"}
-                  </span>
-                </label>
-              </div>
-            </div>
-
-            <div className="pt-4 border-t border-rose-50 space-y-4">
-              <div>
-                <label className="block text-sm font-semibold text-slate-700 mb-2">Instagram Handle: Optional but encouraged</label>
-                <div className="relative">
-                  <span className="absolute left-4 top-3 text-slate-400 font-medium">@</span>
-                  <input 
-                    type="text"
-                    value={data.instagramHandle}
-                    onChange={e => updateField('instagramHandle', e.target.value.replace(/^@/, ''))}
-                    placeholder="username"
-                    className="w-full pl-8 pr-4 py-3 bg-rose-50/30 border border-rose-100 rounded-2xl focus:ring-2 focus:ring-rose-500 focus:border-rose-500 outline-none transition-all"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-semibold text-slate-700 mb-2">LinkedIn Handle (optional but encouraged)</label>
-                <div className="relative">
-                  <span className="absolute left-4 top-3 text-slate-400 font-medium">in/</span>
-                  <input 
-                    type="text"
-                    value={data.linkedinHandle}
-                    onChange={e => updateField('linkedinHandle', e.target.value.replace(/^in\//, ''))}
-                    placeholder="yourname"
-                    className="w-full pl-11 pr-4 py-3 bg-rose-50/30 border border-rose-100 rounded-2xl focus:ring-2 focus:ring-rose-500 focus:border-rose-500 outline-none transition-all"
-                  />
-                </div>
-              </div>
+            <div className="space-y-2">
+              <label className="text-sm font-semibold text-slate-700 dark:text-rose-300">Trajectory Context</label>
+              <p className="text-xs text-rose-400 dark:text-rose-500 mb-2">What is the most impressive thing you've built or achieved?</p>
+              <textarea 
+                rows={4}
+                value={data.ambitionContext}
+                onChange={e => updateField('ambitionContext', e.target.value)}
+                className="w-full px-5 py-4 bg-white/70 dark:bg-rose-950/20 border border-rose-100 dark:border-rose-900/40 rounded-2xl outline-none resize-none dark:text-rose-100"
+              />
             </div>
           </div>
-        )}
+        </section>
 
-        {step === 4 && (
-          <div className="space-y-6">
-            <h2 className="text-3xl font-serif font-bold text-rose-950 mb-2">Open Ended</h2>
-            <p className="text-slate-500 text-sm mb-6">Describe your trajectory. We look for shared values and energy.</p>
-            
-            <div className="space-y-6">
-              <div>
-                <label className="block text-sm font-semibold text-slate-700 mb-2">What are you looking for right now?</label>
-                <textarea 
-                  rows={2}
-                  value={data.lookingFor}
-                  onChange={e => updateField('lookingFor', e.target.value)}
-                  className="w-full px-4 py-3 bg-rose-50/30 border border-rose-100 rounded-2xl outline-none"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-semibold text-slate-700 mb-2">Describe your ideal partner</label>
-                <p className="text-xs text-rose-400 mb-2">Values, ambition level, energy...</p>
-                <textarea 
-                  rows={2}
-                  value={data.idealPartner}
-                  onChange={e => updateField('idealPartner', e.target.value)}
-                  className="w-full px-4 py-3 bg-rose-50/30 border border-rose-100 rounded-2xl outline-none"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-semibold text-slate-700 mb-2">A great first date (30-90 mins)</label>
-                <textarea 
-                  rows={2}
-                  value={data.firstDate}
-                  onChange={e => updateField('firstDate', e.target.value)}
-                  className="w-full px-4 py-3 bg-rose-50/30 border border-rose-100 rounded-2xl outline-none"
-                  placeholder="Keep it authentic..."
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-semibold text-slate-700 mb-2">What do you want someone you’re dating to understand about your life right now?</label>
-                <textarea 
-                  rows={2}
-                  value={data.lifeContext}
-                  onChange={e => updateField('lifeContext', e.target.value)}
-                  className="w-full px-4 py-3 bg-rose-50/30 border border-rose-100 rounded-2xl outline-none"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-semibold text-slate-700 mb-2">One thing you’re excited to build in the next few years</label>
-                <p className="text-xs text-rose-400 mb-2">(Career, life, or otherwise)</p>
-                <textarea 
-                  rows={2}
-                  value={data.excitedToBuild}
-                  onChange={e => updateField('excitedToBuild', e.target.value)}
-                  className="w-full px-4 py-3 bg-rose-50/30 border border-rose-100 rounded-2xl outline-none"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-semibold text-slate-700 mb-2">Any dealbreakers or important preferences? (Optional)</label>
-                <textarea 
-                  rows={2}
-                  value={data.dealbreakers}
-                  onChange={e => updateField('dealbreakers', e.target.value)}
-                  className="w-full px-4 py-3 bg-rose-50/30 border border-rose-100 rounded-2xl outline-none"
-                  placeholder="Specific requirements..."
-                />
-              </div>
+        {/* IV. PHILOSOPHY */}
+        <section className="space-y-10">
+          <div className="flex items-center gap-4">
+            <span className="text-xs font-bold text-rose-300 dark:text-rose-700 uppercase tracking-widest">04</span>
+            <h2 className="text-2xl font-serif font-bold text-rose-900 dark:text-rose-200">Values & Depth</h2>
+            <div className="h-[1px] flex-grow bg-rose-100 dark:bg-rose-900/50" />
+          </div>
+
+          <div className="space-y-10">
+            <div className="space-y-3">
+              <label className="text-sm font-bold text-rose-950 dark:text-rose-200">What are you looking for right now?</label>
+              <textarea 
+                rows={3}
+                value={data.lookingFor}
+                onChange={e => updateField('lookingFor', e.target.value)}
+                className="w-full px-5 py-4 bg-white/70 dark:bg-rose-950/20 border border-rose-100 dark:border-rose-900/40 rounded-2xl outline-none shadow-inner dark:text-rose-100"
+              />
+            </div>
+            <div className="space-y-3">
+              <label className="text-sm font-bold text-rose-950 dark:text-rose-200">Describe your ideal intellectual partner</label>
+              <textarea 
+                rows={3}
+                value={data.idealPartner}
+                onChange={e => updateField('idealPartner', e.target.value)}
+                className="w-full px-5 py-4 bg-white/70 dark:bg-rose-950/20 border border-rose-100 dark:border-rose-900/40 rounded-2xl outline-none shadow-inner dark:text-rose-100"
+              />
             </div>
           </div>
-        )}
+        </section>
 
-        {step === 5 && (
-          <div className="space-y-8">
-            <h2 className="text-3xl font-serif font-bold text-rose-950 mb-8">Covalent Commitment</h2>
-            
-            <div className="space-y-4">
-              <div 
+        {/* V. COMMITMENT */}
+        <section className="bg-rose-950 dark:bg-black p-10 md:p-16 rounded-[3rem] text-rose-50 space-y-10 shadow-2xl shadow-rose-900/40 border border-rose-900 dark:border-rose-800">
+          <div className="text-center">
+            <h2 className="text-3xl font-serif italic mb-4">Covalent Honor Code</h2>
+            <p className="text-rose-300/80 text-sm max-w-sm mx-auto">We scrap the swiping to give you intentionality. We ask for the same in return.</p>
+          </div>
+
+          <div className="space-y-4">
+             <div 
                 onClick={() => updateField('understandsOneMatch', !data.understandsOneMatch)}
-                className={`p-6 border rounded-[2rem] cursor-pointer transition-all flex items-start gap-4 ${
-                  data.understandsOneMatch ? 'bg-rose-950 text-white border-rose-950 shadow-xl' : 'bg-rose-50/50 border-rose-100'
+                className={`p-6 border rounded-3xl cursor-pointer transition-all flex items-start gap-4 ${
+                  data.understandsOneMatch ? 'bg-white text-rose-950 border-white' : 'bg-rose-900/30 border-rose-800'
                 }`}
               >
-                <div className={`mt-1 w-6 h-6 rounded border-2 flex items-center justify-center shrink-0 ${data.understandsOneMatch ? 'bg-rose-600 border-rose-600' : 'bg-white border-rose-200'}`}>
-                  {data.understandsOneMatch && <div className="w-3 h-3 bg-white rounded-full" />}
-                </div>
-                <p className="text-sm leading-relaxed">I understand Covalent offers <b>one intentional match at a time</b>. I value quality over the dopamine of swiping.</p>
+                <div className={`mt-1 w-5 h-5 rounded-full border-2 shrink-0 ${data.understandsOneMatch ? 'bg-rose-600 border-rose-600' : 'bg-white'}`} />
+                <p className="text-sm font-medium">I value quality over quantity and accept one intentional match per cycle.</p>
               </div>
-
               <div 
                 onClick={() => updateField('willingToExplore', !data.willingToExplore)}
-                className={`p-6 border rounded-[2rem] cursor-pointer transition-all flex items-start gap-4 ${
-                  data.willingToExplore ? 'bg-rose-950 text-white border-rose-950 shadow-xl' : 'bg-rose-50/50 border-rose-100'
+                className={`p-6 border rounded-3xl cursor-pointer transition-all flex items-start gap-4 ${
+                  data.willingToExplore ? 'bg-white text-rose-950 border-white' : 'bg-rose-900/30 border-rose-800'
                 }`}
               >
-                <div className={`mt-1 w-6 h-6 rounded border-2 flex items-center justify-center shrink-0 ${data.willingToExplore ? 'bg-rose-600 border-rose-600' : 'bg-white border-rose-200'}`}>
-                  {data.willingToExplore && <div className="w-3 h-3 bg-white rounded-full" />}
-                </div>
-                <p className="text-sm leading-relaxed">I’m willing to <b>actually explore the match I receive</b>. I understand that intellectual connection takes focus.</p>
+                <div className={`mt-1 w-5 h-5 rounded-full border-2 shrink-0 ${data.willingToExplore ? 'bg-rose-600 border-rose-600' : 'bg-white'}`} />
+                <p className="text-sm font-medium">I will actually explore the match I receive with focus and respect.</p>
               </div>
-            </div>
-
-            <div className="p-8 bg-rose-50 rounded-3xl text-center border border-rose-100">
-              <p className="text-rose-900 text-sm italic font-serif">
-                "By submitting, you enter the next matching cycle. We will hand-email you your match personally. Best of luck."
-              </p>
-            </div>
           </div>
-        )}
 
-        {/* Footer Buttons */}
-        <div className="mt-auto pt-10 flex items-center justify-between">
           <button
-            onClick={prevStep}
-            disabled={step === 0}
-            className={`text-sm font-bold px-6 py-2 rounded-full transition-all ${
-              step === 0 ? 'text-rose-200 cursor-not-allowed' : 'text-rose-400 hover:text-rose-900'
+            onClick={handleSubmit}
+            disabled={!isValid || isSubmitting}
+            className={`w-full py-6 rounded-2xl font-bold uppercase tracking-widest transition-all ${
+              isValid && !isSubmitting 
+              ? 'bg-rose-600 hover:bg-rose-500 text-white shadow-xl shadow-rose-950 dark:shadow-rose-950/20' 
+              : 'bg-rose-900/50 text-rose-800 cursor-not-allowed'
             }`}
           >
-            Back
+            {isSubmitting ? 'Syncing to Global Registry...' : (isValid ? 'Submit Application' : 'Complete Required Fields')}
           </button>
-          <button
-            onClick={step === STEPS.length - 1 ? handleSubmit : nextStep}
-            disabled={!isStepValid()}
-            className={`px-10 py-4 rounded-full text-white font-bold transition-all shadow-md ${
-              isStepValid() ? 'bg-rose-600 hover:bg-rose-700 shadow-rose-200' : 'bg-rose-100 text-rose-300 cursor-not-allowed'
-            }`}
-          >
-            {step === STEPS.length - 1 ? 'Submit to the Cohort' : 'Continue'}
-          </button>
-        </div>
+        </section>
       </div>
     </div>
   );
