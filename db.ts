@@ -1,52 +1,66 @@
 
 import { QuestionnaireData } from './types';
 
-/**
- * COVALENT CLOUD REGISTRY
- * Uses a public anonymous KV store to sync submissions across devices.
- * In a production environment, this would be replaced by a secure private database.
- */
-
-// A stable unique key for your specific cohort instance
-const BUCKET_ID = 'covalent_cohort_v1_global';
-const BASE_URL = `https://kvdb.io/A8Y4k9P7pG6J1z8wM2n3/`; // Shared public bucket for the prototype
+const BUCKET_ID = 'covalent_cohort_v1_sync_final';
+const BASE_URL = `https://kvdb.io/A8Y4k9P7pG6J1z8wM2n3/`;
 
 export const db = {
   async saveSubmission(submission: QuestionnaireData) {
+    console.log("Saving submission...", submission.id);
+    
+    // 1. Save locally first (Immediate feedback)
+    const local = JSON.parse(localStorage.getItem('covalent_submissions') || '[]');
+    const updatedLocal = [submission, ...local];
+    localStorage.setItem('covalent_submissions', JSON.stringify(updatedLocal));
+
     try {
-      // 1. Get existing submissions from the cloud
-      const current = await this.getAllSubmissions();
-      
-      // 2. Append new submission
-      const updated = [submission, ...current];
-      
-      // 3. Save back to the global cloud
-      const response = await fetch(`${BASE_URL}${BUCKET_ID}`, {
+      // 2. Fetch remote to merge
+      const response = await fetch(`${BASE_URL}${BUCKET_ID}`);
+      let remote: QuestionnaireData[] = [];
+      if (response.ok) {
+        const text = await response.text();
+        remote = text ? JSON.parse(text) : [];
+      }
+
+      // 3. Merge avoiding duplicates
+      const merged = [...updatedLocal, ...remote].reduce((acc: QuestionnaireData[], curr) => {
+        if (!acc.find(item => item.id === curr.id)) acc.push(curr);
+        return acc;
+      }, []);
+
+      // 4. Push to cloud
+      await fetch(`${BASE_URL}${BUCKET_ID}`, {
         method: 'POST',
-        body: JSON.stringify(updated),
+        body: JSON.stringify(merged),
         headers: { 'Content-Type': 'application/json' }
       });
-
-      if (!response.ok) throw new Error('Cloud sync failed');
       
-      // Backup to localStorage
-      localStorage.setItem('covalent_backup', JSON.stringify(submission));
+      console.log("Cloud sync successful");
     } catch (err) {
-      console.error('Persistence error:', err);
-      // Fallback: Store locally if cloud is down
-      const existing = JSON.parse(localStorage.getItem('covalent_submissions') || '[]');
-      localStorage.setItem('covalent_submissions', JSON.stringify([submission, ...existing]));
+      console.error('Cloud sync failed, staying local:', err);
+      // We don't throw here so the user can still finish their flow locally
     }
   },
 
   async getAllSubmissions(): Promise<QuestionnaireData[]> {
     try {
-      const response = await fetch(`${BASE_URL}${BUCKET_ID}`);
-      if (!response.ok) return [];
-      const data = await response.json();
-      return Array.isArray(data) ? data : [];
+      const response = await fetch(`${BASE_URL}${BUCKET_ID}`, { cache: 'no-store' });
+      if (!response.ok) throw new Error("Cloud unreachable");
+      
+      const remote = await response.json();
+      const local = JSON.parse(localStorage.getItem('covalent_submissions') || '[]');
+      
+      // Merge local and remote
+      const merged = [...local, ...remote].reduce((acc: QuestionnaireData[], curr) => {
+        if (!acc.find(item => item.id === curr.id)) acc.push(curr);
+        return acc;
+      }, []);
+      
+      // Update local cache
+      localStorage.setItem('covalent_submissions', JSON.stringify(merged));
+      return merged;
     } catch (err) {
-      console.warn('Cloud offline, reading local cache');
+      console.warn('Sync failed, using local cache:', err);
       return JSON.parse(localStorage.getItem('covalent_submissions') || '[]');
     }
   },
@@ -60,7 +74,7 @@ export const db = {
       });
       localStorage.removeItem('covalent_submissions');
     } catch (err) {
-      console.error(err);
+      console.error("Clear failed:", err);
     }
   }
 };
