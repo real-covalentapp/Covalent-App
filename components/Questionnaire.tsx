@@ -12,7 +12,6 @@ const Questionnaire: React.FC<Props> = ({ onComplete }) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [syncResult, setSyncResult] = useState<'idle' | 'success' | 'error'>('idle');
   const [progress, setProgress] = useState(0);
-  // Fix: Added missing isValid state variable to manage form submission state
   const [isValid, setIsValid] = useState(false);
   const formRef = useRef<HTMLDivElement>(null);
 
@@ -30,8 +29,6 @@ const Questionnaire: React.FC<Props> = ({ onComplete }) => {
     });
   };
 
-  // Fix: Calculate isValid and progress based on form fields. 
-  // Removed careerDirection from the check as it is not present in the form UI.
   useEffect(() => {
     const required = [
       data.fullName, data.email, data.age, data.gender, 
@@ -58,7 +55,6 @@ const Questionnaire: React.FC<Props> = ({ onComplete }) => {
       setTimeout(() => onComplete(), 1200);
     } else {
       setSyncResult('error');
-      // Still proceed, as it's saved in local storage fallback
       setTimeout(() => onComplete(), 2000);
     }
   };
@@ -70,6 +66,7 @@ const Questionnaire: React.FC<Props> = ({ onComplete }) => {
         {['Not important', 'Somewhat important', 'Very important'].map(opt => (
           <button
             key={opt}
+            type="button"
             onClick={() => updateField(field, opt)}
             className={`px-4 py-2 rounded-xl border text-[10px] font-bold uppercase tracking-wider transition-all ${
               data[field] === opt ? 'bg-rose-600 text-white border-rose-600 shadow-md scale-105' : 'bg-white/50 dark:bg-rose-950/20 dark:text-rose-400 border-rose-100 dark:border-rose-900/40'
@@ -139,7 +136,7 @@ const Questionnaire: React.FC<Props> = ({ onComplete }) => {
             <label className="text-sm font-semibold text-slate-700 dark:text-rose-300 block">Matching with</label>
             <div className="flex flex-wrap gap-3">
               {['Man', 'Woman', 'Non-binary'].map(g => (
-                <button key={g} onClick={() => handleCheckboxChange('interestedIn', g)} className={`px-6 py-3 rounded-full border text-sm font-medium transition-all ${data.interestedIn.includes(g as Gender) ? 'bg-rose-950 dark:bg-rose-100 text-white dark:text-rose-950 border-rose-950 dark:border-rose-100 shadow-lg' : 'bg-white/70 dark:bg-rose-900/10 text-rose-700 dark:text-rose-400 border-rose-100 dark:border-rose-900/30'}`}>{g}</button>
+                <button key={g} type="button" onClick={() => handleCheckboxChange('interestedIn', g)} className={`px-6 py-3 rounded-full border text-sm font-medium transition-all ${data.interestedIn.includes(g as Gender) ? 'bg-rose-950 dark:bg-rose-100 text-white dark:text-rose-950 border-rose-950 dark:border-rose-100 shadow-lg' : 'bg-white/70 dark:bg-rose-900/10 text-rose-700 dark:text-rose-400 border-rose-100 dark:border-rose-900/30'}`}>{g}</button>
               ))}
             </div>
           </div>
@@ -197,7 +194,7 @@ const Questionnaire: React.FC<Props> = ({ onComplete }) => {
             <label className="text-sm font-semibold text-slate-700 dark:text-rose-300 block">Location committed after grad?</label>
             <div className="flex flex-wrap gap-4">
               {['Yes', 'No', 'Unsure'].map(opt => (
-                <button key={opt} onClick={() => updateField('locationCommitted', opt)} className={`px-8 py-3 rounded-2xl border text-sm font-bold transition-all ${data.locationCommitted === opt ? 'bg-rose-600 text-white border-rose-600' : 'bg-white/50 dark:bg-rose-950/20 dark:text-rose-300 border-rose-100 dark:border-rose-900/40'}`}>{opt}</button>
+                <button key={opt} type="button" onClick={() => updateField('locationCommitted', opt)} className={`px-8 py-3 rounded-2xl border text-sm font-bold transition-all ${data.locationCommitted === opt ? 'bg-rose-600 text-white border-rose-600' : 'bg-white/50 dark:bg-rose-950/20 dark:text-rose-300 border-rose-100 dark:border-rose-900/40'}`}>{opt}</button>
               ))}
             </div>
             <input type="text" value={data.locationDetail} onChange={e => updateField('locationDetail', e.target.value)} placeholder="Target cities (e.g. NYC, SF, London)" className="w-full px-5 py-4 bg-white/70 dark:bg-rose-950/20 border border-rose-100 dark:border-rose-900/40 rounded-2xl outline-none dark:text-rose-100 shadow-inner" />
@@ -234,13 +231,18 @@ const Questionnaire: React.FC<Props> = ({ onComplete }) => {
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm font-semibold text-slate-700 dark:text-rose-300">Resume / Portfolio (Filename Only)</label>
-              <input type="text" value={data.resumeFileName} onChange={e => updateField('resumeFileName', e.target.value)} placeholder="e.g. academic_cv_2025.pdf" className="w-full px-5 py-4 bg-white/70 dark:bg-rose-950/20 border border-rose-100 dark:border-rose-900/40 rounded-2xl outline-none dark:text-rose-100" />
+              <label className="text-sm font-semibold text-slate-700 dark:text-rose-300">Resume Copy Paste (Major Accomplishments List)</label>
+              <textarea rows={3} value={data.resumeAccomplishments} onChange={e => updateField('resumeAccomplishments', e.target.value)} placeholder="e.g. Built a solar car, Published research on LLMs..." className="w-full px-5 py-4 bg-white/70 dark:bg-rose-950/20 border border-rose-100 dark:border-rose-900/40 rounded-2xl outline-none dark:text-rose-100" />
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm font-semibold text-slate-700 dark:text-rose-300">Trajectory Context</label>
-              <textarea rows={3} value={data.ambitionContext} onChange={e => updateField('ambitionContext', e.target.value)} placeholder="Tell us more about your projects or goals." className="w-full px-5 py-4 bg-white/70 dark:bg-rose-950/20 border border-rose-100 dark:border-rose-900/40 rounded-2xl outline-none resize-none dark:text-rose-100 shadow-inner" />
+              <label className="text-sm font-semibold text-slate-700 dark:text-rose-300">Tell us more about hobbies</label>
+              <input type="text" value={data.hobbies} onChange={e => updateField('hobbies', e.target.value)} placeholder="Chess, climbing, writing, etc." className="w-full px-5 py-4 bg-white/70 dark:bg-rose-950/20 border border-rose-100 dark:border-rose-900/40 rounded-2xl outline-none dark:text-rose-100" />
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-semibold text-slate-700 dark:text-rose-300">Tell us more about why you're an exceptional individual</label>
+              <textarea rows={3} value={data.ambitionContext} onChange={e => updateField('ambitionContext', e.target.value)} placeholder="What are you building? Why are you different?" className="w-full px-5 py-4 bg-white/70 dark:bg-rose-950/20 border border-rose-100 dark:border-rose-900/40 rounded-2xl outline-none resize-none dark:text-rose-100 shadow-inner" />
             </div>
           </div>
         </section>
@@ -301,7 +303,7 @@ const Questionnaire: React.FC<Props> = ({ onComplete }) => {
                 <p className="text-sm font-bold leading-relaxed">I will actually explore the match I receive with focus and respect.</p>
               </div>
           </div>
-          <button onClick={handleSubmit} disabled={!isValid || isSubmitting} className={`w-full py-7 rounded-3xl font-black uppercase tracking-widest transition-all relative z-10 ${isValid && !isSubmitting ? 'bg-rose-600 hover:bg-rose-500 text-white shadow-2xl hover:scale-[1.02]' : 'bg-rose-900/50 text-rose-800 cursor-not-allowed'}`}>
+          <button type="button" onClick={handleSubmit} disabled={!isValid || isSubmitting} className={`w-full py-7 rounded-3xl font-black uppercase tracking-widest transition-all relative z-10 ${isValid && !isSubmitting ? 'bg-rose-600 hover:bg-rose-500 text-white shadow-2xl hover:scale-[1.02]' : 'bg-rose-900/50 text-rose-800 cursor-not-allowed'}`}>
             {isSubmitting ? 'Syncing to Registry...' : 
              syncResult === 'success' ? 'Application Received' :
              syncResult === 'error' ? 'Saved (Sync Delayed)' :

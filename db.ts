@@ -1,23 +1,23 @@
 
 import { QuestionnaireData } from './types';
 
-// Unique bucket for the Covalent Global Registry
-const BUCKET_ID = 'covalent_registry_v4_final';
+// Using a fresh, unique bucket ID to ensure no collisions with previous versions
+const BUCKET_ID = 'covalent_prod_final_v5_global';
 const BASE_URL = `https://kvdb.io/A8Y4k9P7pG6J1z8wM2n3/`;
 
 export const db = {
   async saveSubmission(submission: QuestionnaireData): Promise<boolean> {
-    // 1. Save locally first as a fallback
+    // 1. Local backup
     const local = JSON.parse(localStorage.getItem('covalent_submissions') || '[]');
-    const updatedLocal = [submission, ...local];
-    localStorage.setItem('covalent_submissions', JSON.stringify(updatedLocal));
+    localStorage.setItem('covalent_submissions', JSON.stringify([submission, ...local]));
 
     try {
-      // 2. Fetch latest remote data to merge
-      const response = await fetch(`${BASE_URL}${BUCKET_ID}`, {
+      // 2. Critical: Fetch remote with cache busting to get the ABSOLUTE latest
+      const response = await fetch(`${BASE_URL}${BUCKET_ID}?t=${Date.now()}`, {
         method: 'GET',
         mode: 'cors',
-        headers: { 'Accept': 'application/json' }
+        headers: { 'Accept': 'application/json' },
+        cache: 'no-store'
       });
       
       let remote: QuestionnaireData[] = [];
@@ -26,8 +26,10 @@ export const db = {
         remote = text ? JSON.parse(text) : [];
       }
 
-      // 3. Merge avoiding duplicates by ID
-      const merged = [...updatedLocal, ...remote].reduce((acc: QuestionnaireData[], curr) => {
+      // 3. Merge EVERYTHING (Local cache + Remote + Current submission)
+      // This ensures that even if a device was offline, its old submissions eventually get pushed.
+      const allSubmissions = [submission, ...local, ...remote];
+      const merged = allSubmissions.reduce((acc: QuestionnaireData[], curr) => {
         if (!acc.find(item => item.id === curr.id)) acc.push(curr);
         return acc;
       }, []);
@@ -40,31 +42,32 @@ export const db = {
         headers: { 'Content-Type': 'application/json' }
       });
 
-      if (!pushResponse.ok) throw new Error("Sync failed at the cloud level");
+      if (!pushResponse.ok) throw new Error("Cloud push failed");
       
       localStorage.setItem('covalent_submissions', JSON.stringify(merged));
       return true;
     } catch (err) {
-      console.error('Sync Error:', err);
-      return false; // User still proceeds as data is in localStorage
+      console.error('CRITICAL SYNC ERROR:', err);
+      return false;
     }
   },
 
   async getAllSubmissions(): Promise<QuestionnaireData[]> {
     try {
-      const response = await fetch(`${BASE_URL}${BUCKET_ID}`, {
+      // Use timestamp query to bypass any carrier or browser level caching
+      const response = await fetch(`${BASE_URL}${BUCKET_ID}?t=${Date.now()}`, {
         method: 'GET',
         mode: 'cors',
         cache: 'no-store',
         headers: { 'Accept': 'application/json' }
       });
       
-      if (!response.ok) throw new Error("Connection failed");
+      if (!response.ok) throw new Error("Registry unreachable");
       
       const remote = await response.json();
       const local = JSON.parse(localStorage.getItem('covalent_submissions') || '[]');
       
-      // Merge local unsynced with remote
+      // Merge local with remote to ensure any unsynced local data is visible to the admin
       const merged = [...local, ...remote].reduce((acc: QuestionnaireData[], curr) => {
         if (!acc.find(item => item.id === curr.id)) acc.push(curr);
         return acc;
@@ -73,7 +76,7 @@ export const db = {
       localStorage.setItem('covalent_submissions', JSON.stringify(merged));
       return merged;
     } catch (err) {
-      console.warn('Network issue, using local cache.');
+      console.warn('Network issue, falling back to local storage.');
       return JSON.parse(localStorage.getItem('covalent_submissions') || '[]');
     }
   },

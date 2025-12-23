@@ -32,7 +32,8 @@ export interface QuestionnaireData {
   exceptionalTraits: string[];
   otherTrait: string;
   ambitionContext: string;
-  resumeFileName: string;
+  resumeAccomplishments: string; // Renamed from resumeFileName
+  hobbies: string; // Added field
   instagramHandle: string;
   linkedinHandle: string;
 
@@ -72,7 +73,8 @@ export const INITIAL_DATA: QuestionnaireData = {
   exceptionalTraits: [],
   otherTrait: '',
   ambitionContext: '',
-  resumeFileName: '',
+  resumeAccomplishments: '',
+  hobbies: '',
   instagramHandle: '',
   linkedinHandle: '',
   lookingFor: '',

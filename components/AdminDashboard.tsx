@@ -29,14 +29,16 @@ const AdminDashboard: React.FC = () => {
     const headers = [
       "ID", "Name", "Email", "Age", "Gender", "Interests", 
       "Culture", "Religion", "Politics", "Major", "GradYear",
-      "Career", "LocCommit", "LocDetail", "Traits", "Instagram", "LinkedIn", "Resume",
+      "Career", "LocCommit", "LocDetail", "Traits", "Instagram", "LinkedIn", "Resume", "Hobbies",
       "LookingFor", "IdealPartner", "BuildGoal", "Dealbreakers", "Trajectory"
     ];
     const rows = submissions.map(s => [
       s.id, s.fullName, s.email, s.age, s.gender, s.interestedIn.join('|'),
       s.culturalBackground, s.religion, s.politicalIdentity, s.major, s.gradYear,
       s.careerDirection, s.locationCommitted, s.locationDetail, s.exceptionalTraits.join('|'),
-      s.instagramHandle, s.linkedinHandle, s.resumeFileName,
+      s.instagramHandle, s.linkedinHandle, 
+      `"${(s.resumeAccomplishments || '').replace(/"/g, '""')}"`,
+      `"${(s.hobbies || '').replace(/"/g, '""')}"`,
       `"${(s.lookingFor || '').replace(/"/g, '""')}"`, 
       `"${(s.idealPartner || '').replace(/"/g, '""')}"`, 
       `"${(s.excitedToBuild || '').replace(/"/g, '""')}"`,
@@ -88,7 +90,6 @@ const AdminDashboard: React.FC = () => {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 items-start">
-        {/* List View */}
         <div className="lg:col-span-4 space-y-4 max-h-[80vh] overflow-y-auto pr-4 custom-scrollbar">
           {submissions.length === 0 && !isLoading && (
             <div className="p-16 text-center border-2 border-dashed border-rose-100 dark:border-rose-900 rounded-[3rem] text-rose-300 italic">No applicants found.</div>
@@ -104,7 +105,6 @@ const AdminDashboard: React.FC = () => {
           ))}
         </div>
 
-        {/* Detail View */}
         <div className="lg:col-span-8">
           {selected ? (
             <div className="bg-white/80 dark:bg-black/60 backdrop-blur-md border border-rose-50 dark:border-rose-900/30 rounded-[4rem] p-12 md:p-16 shadow-2xl animate-in zoom-in-95 duration-300 h-full overflow-y-auto max-h-[85vh] custom-scrollbar">
@@ -158,7 +158,7 @@ const AdminDashboard: React.FC = () => {
                     <div className="space-y-2 text-xs">
                       <p className="font-bold text-rose-500">IG: {selected.instagramHandle || 'N/A'}</p>
                       <p className="font-bold text-blue-500">LI: {selected.linkedinHandle || 'N/A'}</p>
-                      <p className="text-slate-400">File: {selected.resumeFileName || 'None'}</p>
+                      <p className="font-bold text-emerald-500">Hobbies: {selected.hobbies || 'N/A'}</p>
                     </div>
                   </div>
                 </section>
@@ -168,7 +168,8 @@ const AdminDashboard: React.FC = () => {
                 {[
                   { label: "The Build Goal", val: selected.excitedToBuild },
                   { label: "Ideal Partner", val: selected.idealPartner },
-                  { label: "Trajectory Context", val: selected.ambitionContext },
+                  { label: "Accomplishments", val: selected.resumeAccomplishments },
+                  { label: "Exceptional individual details", val: selected.ambitionContext },
                   { label: "Dealbreakers", val: selected.dealbreakers }
                 ].map(item => item.val && (
                   <div key={item.label}>
