@@ -10,7 +10,10 @@ interface Props {
 const Questionnaire: React.FC<Props> = ({ onComplete }) => {
   const [data, setData] = useState<QuestionnaireData>(INITIAL_DATA);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [syncResult, setSyncResult] = useState<'idle' | 'success' | 'error'>('idle');
   const [progress, setProgress] = useState(0);
+  // Fix: Added missing isValid state variable to manage form submission state
+  const [isValid, setIsValid] = useState(false);
   const formRef = useRef<HTMLDivElement>(null);
 
   const updateField = (field: keyof QuestionnaireData, value: any) => {
@@ -27,44 +30,64 @@ const Questionnaire: React.FC<Props> = ({ onComplete }) => {
     });
   };
 
+  // Fix: Calculate isValid and progress based on form fields. 
+  // Removed careerDirection from the check as it is not present in the form UI.
   useEffect(() => {
     const required = [
       data.fullName, data.email, data.age, data.gender, 
       data.interestedIn.length > 0, data.major, data.gradYear,
-      data.careerDirection, data.lookingFor, data.idealPartner,
+      data.lookingFor, data.idealPartner,
       data.understandsOneMatch, data.willingToExplore
     ];
-    const filled = required.filter(Boolean).length;
-    setProgress((filled / required.length) * 100);
+    const filledCount = required.filter(Boolean).length;
+    setIsValid(filledCount === required.length);
+    setProgress((filledCount / required.length) * 100);
   }, [data]);
 
   const handleSubmit = async () => {
     setIsSubmitting(true);
-    try {
-      const finalData = {
-        ...data,
-        id: Math.random().toString(36).substr(2, 9),
-        submittedAt: new Date().toISOString()
-      };
-      await db.saveSubmission(finalData);
-      onComplete();
-    } catch (err) {
-      alert("There was an issue syncing your data. It has been saved locally.");
-    } finally {
-      setIsSubmitting(false);
+    const finalData = {
+      ...data,
+      id: Math.random().toString(36).substr(2, 9),
+      submittedAt: new Date().toISOString()
+    };
+    
+    const success = await db.saveSubmission(finalData);
+    if (success) {
+      setSyncResult('success');
+      setTimeout(() => onComplete(), 1200);
+    } else {
+      setSyncResult('error');
+      // Still proceed, as it's saved in local storage fallback
+      setTimeout(() => onComplete(), 2000);
     }
   };
 
-  const isValid = progress === 100;
+  const ImportanceSelector = ({ label, field }: { label: string, field: keyof QuestionnaireData }) => (
+    <div className="space-y-3">
+      <label className="text-[11px] font-bold uppercase tracking-widest text-rose-400">{label}</label>
+      <div className="flex flex-wrap gap-2">
+        {['Not important', 'Somewhat important', 'Very important'].map(opt => (
+          <button
+            key={opt}
+            onClick={() => updateField(field, opt)}
+            className={`px-4 py-2 rounded-xl border text-[10px] font-bold uppercase tracking-wider transition-all ${
+              data[field] === opt ? 'bg-rose-600 text-white border-rose-600 shadow-md scale-105' : 'bg-white/50 dark:bg-rose-950/20 dark:text-rose-400 border-rose-100 dark:border-rose-900/40'
+            }`}
+          >
+            {opt}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
 
   return (
     <div className="max-w-3xl mx-auto px-6 py-16 animate-in fade-in slide-in-from-bottom-8 duration-700">
+      {/* Progress Sidebar */}
       <div className="fixed left-8 top-1/2 -translate-y-1/2 hidden xl:flex flex-col gap-4 items-center">
         <div className="h-48 w-1 bg-rose-100 dark:bg-rose-900 rounded-full relative overflow-hidden">
-          <div 
-            className="absolute top-0 w-full bg-rose-600 transition-all duration-500"
-            style={{ height: `${progress}%` }}
-          />
+          <div className="absolute top-0 w-full bg-rose-600 transition-all duration-500" style={{ height: `${progress}%` }} />
         </div>
         <span className="text-[10px] font-bold text-rose-400 rotate-90 mt-8 uppercase tracking-widest whitespace-nowrap">
           {Math.round(progress)}% Complete
@@ -72,9 +95,9 @@ const Questionnaire: React.FC<Props> = ({ onComplete }) => {
       </div>
 
       <header className="mb-20 text-center">
-        <h1 className="text-5xl font-serif font-bold text-rose-950 dark:text-rose-100 mb-4 italic">The Cohort Application</h1>
+        <h1 className="text-5xl font-serif font-bold text-rose-950 dark:text-rose-100 mb-4 italic">Cohort Application</h1>
         <p className="text-slate-500 dark:text-rose-300 max-w-lg mx-auto leading-relaxed">
-          Please provide a high-fidelity signal of your trajectory. We hand-review every application for the upcoming match cycle.
+          The following questions help our curators understand your trajectory and shared ambition.
         </p>
       </header>
 
@@ -83,22 +106,22 @@ const Questionnaire: React.FC<Props> = ({ onComplete }) => {
         <section className="space-y-10">
           <div className="flex items-center gap-4">
             <span className="text-xs font-bold text-rose-300 dark:text-rose-700 uppercase tracking-widest">01</span>
-            <h2 className="text-2xl font-serif font-bold text-rose-900 dark:text-rose-200">Identity & Contact</h2>
+            <h2 className="text-2xl font-serif font-bold text-rose-900 dark:text-rose-200">Identity & Basics</h2>
             <div className="h-[1px] flex-grow bg-rose-100 dark:bg-rose-900/50" />
           </div>
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             <div className="space-y-2">
               <label className="text-sm font-semibold text-slate-700 dark:text-rose-300">Full Name</label>
-              <input type="text" value={data.fullName} onChange={e => updateField('fullName', e.target.value)} className="w-full px-5 py-4 bg-white/70 dark:bg-rose-950/20 border border-rose-100 dark:border-rose-900/40 rounded-2xl focus:ring-2 focus:ring-rose-500 transition-all outline-none shadow-sm dark:text-rose-100" placeholder="Julian Thorne" />
+              <input type="text" value={data.fullName} onChange={e => updateField('fullName', e.target.value)} className="w-full px-5 py-4 bg-white/70 dark:bg-rose-950/20 border border-rose-100 dark:border-rose-900/40 rounded-2xl outline-none dark:text-rose-100 shadow-sm" />
             </div>
             <div className="space-y-2">
               <label className="text-sm font-semibold text-slate-700 dark:text-rose-300">Email</label>
-              <input type="email" value={data.email} onChange={e => updateField('email', e.target.value)} className="w-full px-5 py-4 bg-white/70 dark:bg-rose-950/20 border border-rose-100 dark:border-rose-900/40 rounded-2xl focus:ring-2 focus:ring-rose-500 transition-all outline-none shadow-sm dark:text-rose-100" placeholder="name@university.edu" />
+              <input type="email" value={data.email} onChange={e => updateField('email', e.target.value)} className="w-full px-5 py-4 bg-white/70 dark:bg-rose-950/20 border border-rose-100 dark:border-rose-900/40 rounded-2xl outline-none dark:text-rose-100 shadow-sm" />
             </div>
             <div className="space-y-2">
               <label className="text-sm font-semibold text-slate-700 dark:text-rose-300">Age</label>
-              <input type="number" value={data.age} onChange={e => updateField('age', e.target.value)} className="w-full px-5 py-4 bg-white/70 dark:bg-rose-950/20 border border-rose-100 dark:border-rose-900/40 rounded-2xl outline-none dark:text-rose-100" />
+              <input type="number" value={data.age} onChange={e => updateField('age', e.target.value)} className="w-full px-5 py-4 bg-white/70 dark:bg-rose-950/20 border border-rose-100 dark:border-rose-900/40 rounded-2xl outline-none dark:text-rose-100 shadow-sm" />
             </div>
             <div className="space-y-2">
               <label className="text-sm font-semibold text-slate-700 dark:text-rose-300">Gender</label>
@@ -113,7 +136,7 @@ const Questionnaire: React.FC<Props> = ({ onComplete }) => {
           </div>
 
           <div className="space-y-4">
-            <label className="text-sm font-semibold text-slate-700 dark:text-rose-300 block">Interested in</label>
+            <label className="text-sm font-semibold text-slate-700 dark:text-rose-300 block">Matching with</label>
             <div className="flex flex-wrap gap-3">
               {['Man', 'Woman', 'Non-binary'].map(g => (
                 <button key={g} onClick={() => handleCheckboxChange('interestedIn', g)} className={`px-6 py-3 rounded-full border text-sm font-medium transition-all ${data.interestedIn.includes(g as Gender) ? 'bg-rose-950 dark:bg-rose-100 text-white dark:text-rose-950 border-rose-950 dark:border-rose-100 shadow-lg' : 'bg-white/70 dark:bg-rose-900/10 text-rose-700 dark:text-rose-400 border-rose-100 dark:border-rose-900/30'}`}>{g}</button>
@@ -122,37 +145,46 @@ const Questionnaire: React.FC<Props> = ({ onComplete }) => {
           </div>
         </section>
 
-        {/* II. CULTURE & CONTEXT */}
-        <section className="space-y-10">
+        {/* II. CULTURE & VALUES */}
+        <section className="space-y-12">
           <div className="flex items-center gap-4">
             <span className="text-xs font-bold text-rose-300 dark:text-rose-700 uppercase tracking-widest">02</span>
-            <h2 className="text-2xl font-serif font-bold text-rose-900 dark:text-rose-200">Culture & Values</h2>
+            <h2 className="text-2xl font-serif font-bold text-rose-900 dark:text-rose-200">Culture & Depth</h2>
             <div className="h-[1px] flex-grow bg-rose-100 dark:bg-rose-900/50" />
           </div>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-            <div className="space-y-2">
-              <label className="text-sm font-semibold text-slate-700 dark:text-rose-300">Cultural Background (Optional)</label>
-              <input type="text" value={data.culturalBackground} onChange={e => updateField('culturalBackground', e.target.value)} className="w-full px-5 py-4 bg-white/70 dark:bg-rose-950/20 border border-rose-100 dark:border-rose-900/40 rounded-2xl outline-none dark:text-rose-100" />
+
+          <div className="space-y-10">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+              <div className="space-y-4">
+                <label className="text-sm font-semibold text-slate-700 dark:text-rose-300">Cultural Background</label>
+                <input type="text" value={data.culturalBackground} onChange={e => updateField('culturalBackground', e.target.value)} placeholder="e.g. South Asian, Latino, etc." className="w-full px-5 py-4 bg-white/70 dark:bg-rose-950/20 border border-rose-100 dark:border-rose-900/40 rounded-2xl outline-none dark:text-rose-100" />
+                <ImportanceSelector label="Cultural Importance" field="culturalImportance" />
+              </div>
+              <div className="space-y-4">
+                <label className="text-sm font-semibold text-slate-700 dark:text-rose-300">Religion / Spiritual Identity</label>
+                <input type="text" value={data.religion} onChange={e => updateField('religion', e.target.value)} placeholder="e.g. Catholic, Secular, Buddhist" className="w-full px-5 py-4 bg-white/70 dark:bg-rose-950/20 border border-rose-100 dark:border-rose-900/40 rounded-2xl outline-none dark:text-rose-100" />
+                <ImportanceSelector label="Religious Importance" field="religiousImportance" />
+              </div>
             </div>
-            <div className="space-y-2">
-              <label className="text-sm font-semibold text-slate-700 dark:text-rose-300">Religion / Spiritual Identity (Optional)</label>
-              <input type="text" value={data.religion} onChange={e => updateField('religion', e.target.value)} className="w-full px-5 py-4 bg-white/70 dark:bg-rose-950/20 border border-rose-100 dark:border-rose-900/40 rounded-2xl outline-none dark:text-rose-100" />
+            <div className="space-y-4 max-w-md">
+              <label className="text-sm font-semibold text-slate-700 dark:text-rose-300">Political Identity</label>
+              <input type="text" value={data.politicalIdentity} onChange={e => updateField('politicalIdentity', e.target.value)} placeholder="e.g. Progressive, Libertarian, etc." className="w-full px-5 py-4 bg-white/70 dark:bg-rose-950/20 border border-rose-100 dark:border-rose-900/40 rounded-2xl outline-none dark:text-rose-100" />
+              <ImportanceSelector label="Political Importance" field="politicalImportance" />
             </div>
           </div>
         </section>
 
-        {/* III. EDUCATION & PATH */}
+        {/* III. PATHWAY */}
         <section className="space-y-10">
           <div className="flex items-center gap-4">
             <span className="text-xs font-bold text-rose-300 dark:text-rose-700 uppercase tracking-widest">03</span>
-            <h2 className="text-2xl font-serif font-bold text-rose-900 dark:text-rose-200">Education & Trajectory</h2>
+            <h2 className="text-2xl font-serif font-bold text-rose-900 dark:text-rose-200">Education & Logistics</h2>
             <div className="h-[1px] flex-grow bg-rose-100 dark:bg-rose-900/50" />
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             <div className="space-y-2">
-              <label className="text-sm font-semibold text-slate-700 dark:text-rose-300">Primary Field of Study</label>
+              <label className="text-sm font-semibold text-slate-700 dark:text-rose-300">Major / Field of Study</label>
               <input type="text" value={data.major} onChange={e => updateField('major', e.target.value)} className="w-full px-5 py-4 bg-white/70 dark:bg-rose-950/20 border border-rose-100 dark:border-rose-900/40 rounded-2xl outline-none dark:text-rose-100" />
             </div>
             <div className="space-y-2">
@@ -161,22 +193,14 @@ const Questionnaire: React.FC<Props> = ({ onComplete }) => {
             </div>
           </div>
 
-          <div className="space-y-4">
-            <label className="text-sm font-semibold text-slate-700 dark:text-rose-300">Career Direction</label>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-              {['Finance', 'Tech', 'Medicine', 'Law', 'Academia', 'Startup', 'Other'].map(path => (
-                <button key={path} onClick={() => updateField('careerDirection', path.toLowerCase())} className={`py-3 rounded-xl border text-xs font-bold uppercase tracking-wider transition-all ${data.careerDirection === path.toLowerCase() ? 'bg-rose-600 text-white border-rose-600 shadow-md' : 'bg-white/70 dark:bg-rose-900/10 text-rose-800 dark:text-rose-300 border-rose-100 dark:border-rose-900/30'}`}>{path}</button>
-              ))}
-            </div>
-          </div>
-          
-          <div className="space-y-2">
-            <label className="text-sm font-semibold text-slate-700 dark:text-rose-300">Post-Grad Location Plans?</label>
-            <div className="flex gap-4">
+          <div className="space-y-6">
+            <label className="text-sm font-semibold text-slate-700 dark:text-rose-300 block">Location committed after grad?</label>
+            <div className="flex flex-wrap gap-4">
               {['Yes', 'No', 'Unsure'].map(opt => (
-                <button key={opt} onClick={() => updateField('locationCommitted', opt)} className={`px-6 py-2 rounded-full border text-sm font-medium transition-all ${data.locationCommitted === opt ? 'bg-rose-600 text-white border-rose-600' : 'bg-white/70 dark:bg-rose-900/10 dark:text-rose-300 border-rose-100 dark:border-rose-900/30'}`}>{opt}</button>
+                <button key={opt} onClick={() => updateField('locationCommitted', opt)} className={`px-8 py-3 rounded-2xl border text-sm font-bold transition-all ${data.locationCommitted === opt ? 'bg-rose-600 text-white border-rose-600' : 'bg-white/50 dark:bg-rose-950/20 dark:text-rose-300 border-rose-100 dark:border-rose-900/40'}`}>{opt}</button>
               ))}
             </div>
+            <input type="text" value={data.locationDetail} onChange={e => updateField('locationDetail', e.target.value)} placeholder="Target cities (e.g. NYC, SF, London)" className="w-full px-5 py-4 bg-white/70 dark:bg-rose-950/20 border border-rose-100 dark:border-rose-900/40 rounded-2xl outline-none dark:text-rose-100 shadow-inner" />
           </div>
         </section>
 
@@ -184,90 +208,104 @@ const Questionnaire: React.FC<Props> = ({ onComplete }) => {
         <section className="space-y-10">
           <div className="flex items-center gap-4">
             <span className="text-xs font-bold text-rose-300 dark:text-rose-700 uppercase tracking-widest">04</span>
-            <h2 className="text-2xl font-serif font-bold text-rose-900 dark:text-rose-200">Ambition Signals</h2>
+            <h2 className="text-2xl font-serif font-bold text-rose-900 dark:text-rose-200">Ambition & Socials</h2>
             <div className="h-[1px] flex-grow bg-rose-100 dark:bg-rose-900/50" />
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {['Strong academic performance', 'Notable leadership experience', 'Research or technical output', 'Entrepreneurial track record'].map(trait => (
-              <div key={trait} onClick={() => handleCheckboxChange('exceptionalTraits', trait)} className={`p-5 border rounded-[2rem] cursor-pointer transition-all flex items-center gap-4 ${data.exceptionalTraits.includes(trait) ? 'bg-rose-950 dark:bg-rose-100 text-white dark:text-rose-950 border-rose-950 dark:border-rose-100' : 'bg-white/70 dark:bg-rose-900/10 border-rose-50 dark:border-rose-900/30 text-rose-950 dark:text-rose-200'}`}>
+              <div key={trait} onClick={() => handleCheckboxChange('exceptionalTraits', trait)} className={`p-6 border rounded-[2rem] cursor-pointer transition-all flex items-center gap-4 ${data.exceptionalTraits.includes(trait) ? 'bg-rose-950 dark:bg-rose-100 text-white dark:text-rose-950 border-rose-950 dark:border-rose-100 shadow-md' : 'bg-white/70 dark:bg-rose-900/10 border-rose-50 dark:border-rose-900/30 text-rose-950 dark:text-rose-200'}`}>
                 <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center shrink-0 ${data.exceptionalTraits.includes(trait) ? 'bg-rose-500 border-rose-500' : 'bg-rose-50 border-rose-100 dark:border-rose-800'}`}><div className={`w-2 h-2 rounded-full ${data.exceptionalTraits.includes(trait) ? 'bg-white' : 'transparent'}`} /></div>
-                <span className="text-xs font-bold uppercase tracking-wider">{trait}</span>
+                <span className="text-[10px] font-black uppercase tracking-widest">{trait}</span>
               </div>
             ))}
           </div>
 
-          <div className="space-y-6">
+          <div className="space-y-8">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
               <div className="space-y-2">
                 <label className="text-sm font-semibold text-slate-700 dark:text-rose-300">Instagram Handle</label>
-                <input type="text" value={data.instagramHandle} onChange={e => updateField('instagramHandle', e.target.value)} className="w-full px-5 py-4 bg-white/70 dark:bg-rose-950/20 border border-rose-100 dark:border-rose-900/40 rounded-2xl outline-none dark:text-rose-100" placeholder="@username" />
+                <input type="text" value={data.instagramHandle} onChange={e => updateField('instagramHandle', e.target.value)} placeholder="@handle" className="w-full px-5 py-4 bg-white/70 dark:bg-rose-950/20 border border-rose-100 dark:border-rose-900/40 rounded-2xl outline-none dark:text-rose-100" />
               </div>
               <div className="space-y-2">
-                <label className="text-sm font-semibold text-slate-700 dark:text-rose-300">LinkedIn Handle</label>
-                <input type="text" value={data.linkedinHandle} onChange={e => updateField('linkedinHandle', e.target.value)} className="w-full px-5 py-4 bg-white/70 dark:bg-rose-950/20 border border-rose-100 dark:border-rose-900/40 rounded-2xl outline-none dark:text-rose-100" placeholder="in/yourname" />
+                <label className="text-sm font-semibold text-slate-700 dark:text-rose-300">LinkedIn Profile</label>
+                <input type="text" value={data.linkedinHandle} onChange={e => updateField('linkedinHandle', e.target.value)} placeholder="linkedin.com/in/username" className="w-full px-5 py-4 bg-white/70 dark:bg-rose-950/20 border border-rose-100 dark:border-rose-900/40 rounded-2xl outline-none dark:text-rose-100" />
               </div>
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm font-semibold text-slate-700 dark:text-rose-300">Resume / CV (Simulated Upload)</label>
-              <div className="border-2 border-dashed border-rose-100 dark:border-rose-900/40 rounded-2xl p-8 text-center bg-white/30 dark:bg-rose-950/10">
-                <input type="file" id="resume" className="hidden" onChange={e => updateField('resumeFileName', e.target.files?.[0]?.name || '')} />
-                <label htmlFor="resume" className="cursor-pointer">
-                  <span className="text-4xl block mb-2">📄</span>
-                  <span className="text-sm font-semibold text-rose-600 dark:text-rose-400">
-                    {data.resumeFileName || "Click to select PDF"}
-                  </span>
-                </label>
-              </div>
+              <label className="text-sm font-semibold text-slate-700 dark:text-rose-300">Resume / Portfolio (Filename Only)</label>
+              <input type="text" value={data.resumeFileName} onChange={e => updateField('resumeFileName', e.target.value)} placeholder="e.g. academic_cv_2025.pdf" className="w-full px-5 py-4 bg-white/70 dark:bg-rose-950/20 border border-rose-100 dark:border-rose-900/40 rounded-2xl outline-none dark:text-rose-100" />
             </div>
-            
+
             <div className="space-y-2">
-              <label className="text-sm font-semibold text-slate-700 dark:text-rose-300">Notable Output Details</label>
-              <textarea rows={3} value={data.ambitionContext} onChange={e => updateField('ambitionContext', e.target.value)} className="w-full px-5 py-4 bg-white/70 dark:bg-rose-950/20 border border-rose-100 dark:border-rose-900/40 rounded-2xl outline-none resize-none dark:text-rose-100" />
+              <label className="text-sm font-semibold text-slate-700 dark:text-rose-300">Trajectory Context</label>
+              <textarea rows={3} value={data.ambitionContext} onChange={e => updateField('ambitionContext', e.target.value)} placeholder="Tell us more about your projects or goals." className="w-full px-5 py-4 bg-white/70 dark:bg-rose-950/20 border border-rose-100 dark:border-rose-900/40 rounded-2xl outline-none resize-none dark:text-rose-100 shadow-inner" />
             </div>
           </div>
         </section>
 
-        {/* V. OPEN-ENDED */}
-        <section className="space-y-10">
+        {/* V. PHILOSOPHY */}
+        <section className="space-y-12">
           <div className="flex items-center gap-4">
             <span className="text-xs font-bold text-rose-300 dark:text-rose-700 uppercase tracking-widest">05</span>
-            <h2 className="text-2xl font-serif font-bold text-rose-900 dark:text-rose-200">Values & Philosophies</h2>
+            <h2 className="text-2xl font-serif font-bold text-rose-900 dark:text-rose-200">Shared Philosophy</h2>
             <div className="h-[1px] flex-grow bg-rose-100 dark:bg-rose-900/50" />
           </div>
 
-          <div className="space-y-8">
+          <div className="space-y-10">
             <div className="space-y-3">
               <label className="text-sm font-bold text-rose-950 dark:text-rose-200">What are you looking for right now?</label>
-              <textarea rows={2} value={data.lookingFor} onChange={e => updateField('lookingFor', e.target.value)} className="w-full px-5 py-4 bg-white/70 dark:bg-rose-950/20 border border-rose-100 dark:border-rose-900/40 rounded-2xl outline-none dark:text-rose-100" />
+              <textarea rows={2} value={data.lookingFor} onChange={e => updateField('lookingFor', e.target.value)} className="w-full px-5 py-4 bg-white/70 dark:bg-rose-950/20 border border-rose-100 dark:border-rose-900/40 rounded-2xl outline-none dark:text-rose-100 shadow-sm" />
             </div>
             <div className="space-y-3">
-              <label className="text-sm font-bold text-rose-950 dark:text-rose-200">Describe your ideal partner</label>
-              <textarea rows={2} value={data.idealPartner} onChange={e => updateField('idealPartner', e.target.value)} className="w-full px-5 py-4 bg-white/70 dark:bg-rose-950/20 border border-rose-100 dark:border-rose-900/40 rounded-2xl outline-none dark:text-rose-100" />
+              <label className="text-sm font-bold text-rose-950 dark:text-rose-200">Describe your ideal intellectual partner</label>
+              <textarea rows={2} value={data.idealPartner} onChange={e => updateField('idealPartner', e.target.value)} className="w-full px-5 py-4 bg-white/70 dark:bg-rose-950/20 border border-rose-100 dark:border-rose-900/40 rounded-2xl outline-none dark:text-rose-100 shadow-sm" />
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+              <div className="space-y-3">
+                <label className="text-sm font-bold text-rose-950 dark:text-rose-200">First date idea?</label>
+                <input type="text" value={data.firstDate} onChange={e => updateField('firstDate', e.target.value)} className="w-full px-5 py-4 bg-white/70 dark:bg-rose-950/20 border border-rose-100 dark:border-rose-900/40 rounded-2xl outline-none dark:text-rose-100 shadow-sm" />
+              </div>
+              <div className="space-y-3">
+                <label className="text-sm font-bold text-rose-950 dark:text-rose-200">What are you excited to build in 5 years?</label>
+                <input type="text" value={data.excitedToBuild} onChange={e => updateField('excitedToBuild', e.target.value)} className="w-full px-5 py-4 bg-white/70 dark:bg-rose-950/20 border border-rose-100 dark:border-rose-900/40 rounded-2xl outline-none dark:text-rose-100 shadow-sm" />
+              </div>
             </div>
             <div className="space-y-3">
-              <label className="text-sm font-bold text-rose-950 dark:text-rose-200">Any dealbreakers we should know?</label>
-              <textarea rows={2} value={data.dealbreakers} onChange={e => updateField('dealbreakers', e.target.value)} className="w-full px-5 py-4 bg-white/70 dark:bg-rose-950/20 border border-rose-100 dark:border-rose-900/40 rounded-2xl outline-none dark:text-rose-100" />
+              <label className="text-sm font-bold text-rose-950 dark:text-rose-200">Absolute Dealbreakers?</label>
+              <textarea rows={2} value={data.dealbreakers} onChange={e => updateField('dealbreakers', e.target.value)} className="w-full px-5 py-4 bg-white/70 dark:bg-rose-950/20 border border-rose-100 dark:border-rose-900/40 rounded-2xl outline-none dark:text-rose-100 shadow-sm" />
             </div>
           </div>
         </section>
 
         {/* VI. COMMITMENT */}
-        <section className="bg-rose-950 dark:bg-black p-10 md:p-16 rounded-[3rem] text-rose-50 space-y-10 shadow-2xl border border-rose-900 dark:border-rose-800">
-          <div className="text-center"><h2 className="text-3xl font-serif italic mb-4">Covalent Honor Code</h2></div>
-          <div className="space-y-4">
-             <div onClick={() => updateField('understandsOneMatch', !data.understandsOneMatch)} className={`p-6 border rounded-3xl cursor-pointer transition-all flex items-start gap-4 ${data.understandsOneMatch ? 'bg-white text-rose-950 border-white' : 'bg-rose-900/30 border-rose-800'}`}>
-                <div className={`mt-1 w-5 h-5 rounded-full border-2 shrink-0 ${data.understandsOneMatch ? 'bg-rose-600 border-rose-600' : 'bg-white'}`} />
-                <p className="text-sm font-medium">I value quality over quantity and accept one intentional match per cycle.</p>
+        <section className="bg-rose-950 dark:bg-black p-12 md:p-20 rounded-[4rem] text-rose-50 space-y-12 shadow-3xl border border-rose-900 relative overflow-hidden group">
+          <div className="absolute top-0 right-0 p-10 opacity-10 group-hover:rotate-12 transition-transform duration-700">💍</div>
+          <div className="text-center relative z-10">
+            <h2 className="text-4xl font-serif italic mb-4">Honor Code</h2>
+            <p className="text-rose-200/60 text-sm max-w-sm mx-auto">We match for depth. Quality requires commitment.</p>
+          </div>
+          
+          <div className="space-y-4 relative z-10">
+             <div onClick={() => updateField('understandsOneMatch', !data.understandsOneMatch)} className={`p-8 border rounded-3xl cursor-pointer transition-all flex items-start gap-5 ${data.understandsOneMatch ? 'bg-white text-rose-950 border-white shadow-xl' : 'bg-rose-900/30 border-rose-800 hover:border-rose-600'}`}>
+                <div className={`mt-1 w-6 h-6 rounded-full border-2 shrink-0 flex items-center justify-center ${data.understandsOneMatch ? 'bg-rose-600 border-rose-600 text-white' : 'bg-white'}`}>
+                  {data.understandsOneMatch && <span className="text-[10px]">✓</span>}
+                </div>
+                <p className="text-sm font-bold leading-relaxed">I value quality over quantity and accept one intentional match per cycle.</p>
               </div>
-              <div onClick={() => updateField('willingToExplore', !data.willingToExplore)} className={`p-6 border rounded-3xl cursor-pointer transition-all flex items-start gap-4 ${data.willingToExplore ? 'bg-white text-rose-950 border-white' : 'bg-rose-900/30 border-rose-800'}`}>
-                <div className={`mt-1 w-5 h-5 rounded-full border-2 shrink-0 ${data.willingToExplore ? 'bg-rose-600 border-rose-600' : 'bg-white'}`} />
-                <p className="text-sm font-medium">I will actually explore the match I receive with focus and respect.</p>
+              <div onClick={() => updateField('willingToExplore', !data.willingToExplore)} className={`p-8 border rounded-3xl cursor-pointer transition-all flex items-start gap-5 ${data.willingToExplore ? 'bg-white text-rose-950 border-white shadow-xl' : 'bg-rose-900/30 border-rose-800 hover:border-rose-600'}`}>
+                <div className={`mt-1 w-6 h-6 rounded-full border-2 shrink-0 flex items-center justify-center ${data.willingToExplore ? 'bg-rose-600 border-rose-600 text-white' : 'bg-white'}`}>
+                  {data.willingToExplore && <span className="text-[10px]">✓</span>}
+                </div>
+                <p className="text-sm font-bold leading-relaxed">I will actually explore the match I receive with focus and respect.</p>
               </div>
           </div>
-          <button onClick={handleSubmit} disabled={!isValid || isSubmitting} className={`w-full py-6 rounded-2xl font-bold uppercase tracking-widest transition-all ${isValid && !isSubmitting ? 'bg-rose-600 hover:bg-rose-500 text-white shadow-xl' : 'bg-rose-900/50 text-rose-800 cursor-not-allowed'}`}>
-            {isSubmitting ? 'Syncing to Global Registry...' : (isValid ? 'Submit Application' : 'Complete Required Fields')}
+          <button onClick={handleSubmit} disabled={!isValid || isSubmitting} className={`w-full py-7 rounded-3xl font-black uppercase tracking-widest transition-all relative z-10 ${isValid && !isSubmitting ? 'bg-rose-600 hover:bg-rose-500 text-white shadow-2xl hover:scale-[1.02]' : 'bg-rose-900/50 text-rose-800 cursor-not-allowed'}`}>
+            {isSubmitting ? 'Syncing to Registry...' : 
+             syncResult === 'success' ? 'Application Received' :
+             syncResult === 'error' ? 'Saved (Sync Delayed)' :
+             isValid ? 'Submit Application' : 'Fill All Required Fields'}
           </button>
         </section>
       </div>
