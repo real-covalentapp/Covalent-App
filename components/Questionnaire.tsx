@@ -18,19 +18,19 @@ const Questionnaire: React.FC<Props> = ({ onComplete }) => {
         </div>
         <h1 className="text-4xl md:text-5xl font-serif font-bold text-rose-950 dark:text-rose-100 mb-4 italic">The Covalent Application</h1>
         <p className="text-slate-500 dark:text-rose-300 max-w-lg mx-auto leading-relaxed text-sm md:text-base px-4">
-          Complete the form below using your natural scroll. Once submitted, use the confirmation button at the very bottom.
+          The registry is a multi-page process. Use your native phone scroller to navigate.
         </p>
       </header>
 
       {/* 
-          NATIVE SCROLL OPTIMIZATION: 
-          - We use a fixed height of 4631px as requested.
-          - 'scrolling="no"' is used to disable the iframe's internal scroll context.
-          - We remove all overflow-hidden or scroll-snapping classes from the parent.
+          MOBILE SCROLL PERFORMANCE FIX: 
+          - Height increased to 10000 to accommodate multi-page Google Forms.
+          - Removed backdrop-blur-xl (This was the cause of 'lag' on long scrolls).
+          - 'overflow-visible' ensures the parent doesn't clip the iframe.
       */}
-      <div className="relative bg-white/40 dark:bg-black/40 backdrop-blur-xl border border-rose-100 dark:border-rose-900/30 rounded-[2rem] md:rounded-[3rem] shadow-2xl transition-all overflow-visible">
+      <div className="relative bg-white/90 dark:bg-rose-950/10 border border-rose-100 dark:border-rose-900/30 rounded-[2rem] md:rounded-[3rem] shadow-xl transition-all overflow-visible">
         {isLoading && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center bg-white/80 dark:bg-rose-950/20 backdrop-blur-sm z-10 rounded-[2rem] md:rounded-[3rem] h-[600px]">
+          <div className="absolute inset-0 flex flex-col items-center justify-center bg-white dark:bg-rose-950/90 z-10 rounded-[2rem] md:rounded-[3rem] h-[600px]">
             <div className="w-12 h-12 border-4 border-rose-200 border-t-rose-600 rounded-full animate-spin mb-4"></div>
             <p className="text-rose-900 dark:text-rose-200 font-serif italic text-lg text-center px-6">Connecting to Registry...</p>
           </div>
@@ -39,30 +39,36 @@ const Questionnaire: React.FC<Props> = ({ onComplete }) => {
         <iframe 
           src="https://docs.google.com/forms/d/e/1FAIpQLSelnaZmhMvSePHaLZJsQeDHrjSRFJ8eYV0gOGFXrsi9TXiRew/viewform?embedded=true" 
           width="100%" 
-          height="4631" 
+          height="10000" 
           frameBorder="0" 
           marginHeight={0} 
           marginWidth={0}
           scrolling="no"
-          onLoad={() => setIsLoading(false)}
+          onLoad={() => {
+            setIsLoading(false);
+            // Scroll to top of the form area on load for a clean start
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+          }}
           className="w-full transition-opacity duration-1000 block"
           style={{ 
             opacity: isLoading ? 0 : 1,
             pointerEvents: isLoading ? 'none' : 'auto',
             border: 'none',
             overflow: 'hidden',
-            display: 'block'
+            display: 'block',
+            // Forces iOS to respect the height and not create an internal scroll
+            minHeight: '10000px'
           }}
         >
           Loading…
         </iframe>
       </div>
 
-      <div className="mt-12 text-center space-y-6 pb-20">
-        <div className="p-8 bg-rose-950 text-rose-100 rounded-3xl border border-rose-900 shadow-xl inline-block w-full max-w-md">
-          <h3 className="font-serif italic text-xl mb-2 text-rose-100">Final Step</h3>
+      <div className="mt-12 text-center space-y-6 pb-20 relative z-20">
+        <div className="p-8 bg-rose-950 text-rose-100 rounded-3xl border border-rose-900 shadow-2xl inline-block w-full max-w-md">
+          <h3 className="font-serif italic text-xl mb-2 text-rose-100">Application Submitted?</h3>
           <p className="text-sm text-rose-200/70 leading-relaxed mb-6">
-            If you have clicked "Submit" in the Google Form above, confirm here to finish your session.
+            If you've reached the "Thank You" page in the form above, your data is secure. Confirm below to exit.
           </p>
           <button 
             onClick={onComplete}
